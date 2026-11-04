@@ -12,7 +12,7 @@ import {deliverOutbox,queueWeeklyRecap,queueDailyMatchups} from './server/email.
 import {gameShareURL,serveGameShare} from './game-share.mjs';
 import {checkProxy,clientIp} from './server/proxy.mjs';
 const root=resolve('.');
-const allowed=new Set(['/index.html','/client.js','/client.css','/favicon.svg','/agent.md','/series.mjs']);
+const allowed=new Set(['/index.html','/client.js','/client.css','/favicon.svg','/og-card.png','/agent.md','/series.mjs']);
 const mime={'.mjs':'text/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.jpg':'image/jpeg','.png':'image/png','.md':'text/markdown; charset=utf-8'};
 async function jsonBody(req) {
   const chunks=[];let size=0;
