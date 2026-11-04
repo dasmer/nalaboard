@@ -2271,3 +2271,9 @@ h3, .section-title h3 { font-size: 20px; }
   .rally-ball { animation: none; }
   .btn { transition: none; }
 }
+
+/* Keep the generated lockup intact: no flex gap inside the wordmark. */
+.brand-image { display: block; width: 100%; height: auto; }
+.sidebar .logo { padding: 10px; background: #f5f9fc; border-radius: 12px; }
+.mobile-brand { width: 168px; flex-shrink: 0; gap: 0; }
+@media (max-width: 360px) { .mobile-brand { width: 148px; } }

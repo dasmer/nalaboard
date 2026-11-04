@@ -3,7 +3,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-co
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund
-COPY series.mjs game-share.mjs server.mjs index.html client.js client.css favicon.svg og-card.png ./
+COPY series.mjs game-share.mjs server.mjs index.html client.js client.css favicon.svg brand-logo.png brand-icon.png apple-touch-icon.png og-card.png ./
 COPY server ./server
 COPY skills ./skills
 ENV HOST=0.0.0.0 PORT=8080 APP_ENV=production

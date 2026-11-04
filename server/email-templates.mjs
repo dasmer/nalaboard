@@ -1,6 +1,7 @@
 import {matchLabel} from '../series.mjs';
 // Inline styles and presentation tables keep the essentials intact in email clients.
 export const escapeEmail = (value) => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export const emailBrand = (origin) => `<a href="${escapeEmail(origin)}/#feed" style="display:inline-block;color:#12232e;text-decoration:none;"><img src="${escapeEmail(origin)}/brand-logo.png" width="240" height="63" alt="Nalaboard" style="display:block;width:240px;max-width:100%;height:auto;border:0;color:#12232e;font-size:24px;font-weight:bold;"></a>`;
 const heading = 'font-family:Arial,Helvetica,sans-serif;font-weight:900;letter-spacing:-1px;';
 const paragraph = 'margin:0 0 20px;font-size:16px;line-height:1.65;color:#60646c;';
 
@@ -13,9 +14,9 @@ function frame({origin,preheader,kicker,title,content,button,href,footer}) {
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f5f9fc"><tr><td align="center" style="padding:32px 12px;">
 <!--[if mso]><table role="presentation" width="560" align="center"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;border-collapse:separate;">
-<tr><td bgcolor="#1c2024" style="padding:25px 28px;border-radius:16px 16px 0 0;">
-<a href="${e(origin)}" style="${heading}font-size:24px;color:#ffffff;text-decoration:none;">NALA<span style="color:#007fae;">BOARD</span><span style="color:#007fae;">.</span></a>
-<p style="margin:8px 0 0;color:#b9bdaf;font-size:11px;letter-spacing:2px;text-transform:uppercase;">Settle it at the table.</p></td></tr>
+<tr><td bgcolor="#f5f9fc" style="padding:25px 28px;border-radius:16px 16px 0 0;">
+${emailBrand(origin)}
+<p style="margin:8px 0 0;color:#60646c;font-size:11px;letter-spacing:2px;text-transform:uppercase;">Settle it at the table.</p></td></tr>
 <tr><td bgcolor="#ffffff" style="padding:34px 28px 30px;border:1px solid #e3eaf0;border-top:4px solid #007fae;border-radius:0 0 16px 16px;">
 <p style="margin:0 0 13px;font-size:11px;font-weight:bold;letter-spacing:2px;color:#00658a;text-transform:uppercase;">${e(kicker)}</p>
 <h1 style="${heading}margin:0 0 22px;font-size:36px;line-height:1.1;color:#1c2024;">${e(title)}</h1>
