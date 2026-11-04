@@ -1,0 +1,21 @@
+{
+  "routes": [
+    {
+      "src": "/(.*)",
+      "has": [{ "type": "host", "value": "www.burntboard.com" }],
+      "headers": { "Location": "https://burntboard.com/$1" },
+      "status": 308
+    },
+    {
+      "src": "/(.*)",
+      "dest": "https://burntboard-e4bf0edf-79f4-47b0-ba08-a459cd6a7955.fly.dev/$1",
+      "transforms": [{
+        "type": "request.headers",
+        "op": "set",
+        "target": { "key": "x-origin-secret" },
+        "args": "$ORIGIN_SECRET",
+        "env": ["ORIGIN_SECRET"]
+      }]
+    }
+  ]
+}

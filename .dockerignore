@@ -1,0 +1,8 @@
+.git
+.insforge
+.env*
+node_modules
+.agents
+.claude
+test
+migrations

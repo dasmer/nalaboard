@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+Object.assign(process.env,{APP_ENV:'test',INSFORGE_URL:'http://localhost:1',INSFORGE_API_KEY:'fixture-only',RESEND_API_KEY:'re_fixture_only',OTP_SECRET:'fixture-secret',EMAIL_TEST_RECIPIENTS:'sink@example.test',EMAIL_TEST_SINK:'sink@example.test'});
+const sent=[];globalThis.fetch=async(url,options)=>{assert.equal(String(url),'https://api.resend.com/emails');sent.push({body:JSON.parse(options.body),key:new Headers(options.headers).get('idempotency-key')});return new Response(JSON.stringify({id:'mock'}),{headers:{'Content-Type':'application/json'}});};
+const {db}=await import('../server/config.mjs');const {deliverOutbox,queueWeeklyRecap}=await import('../server/email.mjs');
+const id='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
+let enabled=true,updates=[],snapshotReads=0;
+const snapshot={weekStart:'2026-10-11',weekEnd:'2026-10-16',players:[{id,name:'JJ',avatar:'🏓'},{id:other,name:'Jay',avatar:'🏓'}],games:[{id:'g',player1:id,player2:other,score1:2,score2:0,date:'2026-10-16'}]};
+db.database.rpc=async name=>({data:name==='bb_queue_weekly_recap'?0:[{id:'outbox',recipient:id,subject:'Placeholder',payload:{action:'weekly.recap',weekStart:snapshot.weekStart},attempts:1}],error:null});
+db.database.from=table=>{let update;const c={select(){return this},eq(){return this},in(){return this},limit(){return this},update(value){update=value;return this},then(resolve,reject){let data=[];if(table==='bb_players')data=[{id,email:'recipient@example.test',name:'JJ',weekly_recap:enabled}];else if(table==='bb_weekly_runs'){snapshotReads++;data=[{snapshot}];}else{assert.equal(table,'bb_outbox');updates.push(update);}return Promise.resolve({data,error:null}).then(resolve,reject);}};return c;};
+await queueWeeklyRecap();await deliverOutbox();assert.equal(sent.length,1);assert.equal(sent[0].body.from,'Burntboard <info@burntboard.com>');assert.equal(sent[0].body.to,'sink@example.test');assert.equal(sent[0].body.subject,'👑 JJ takes the week · Burntboard');assert(sent[0].body.html.includes('weekly-emails/'));assert.equal(sent[0].key,'bb-outbox');assert(updates[0].sent_at);
+enabled=false;await deliverOutbox();assert.equal(sent.length,1,'An opt-out after queuing prevents delivery');assert.equal(snapshotReads,1,'Cancelled email does not render');assert(updates[1].last_error.includes('Unsubscribed'));
+console.log('Weekly delivery checks passed with intercepted Resend: branded sender, winner subject, stable idempotency key, sink routing and opt-out cancellation.');
