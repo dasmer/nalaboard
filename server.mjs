@@ -23,9 +23,9 @@ async function jsonBody(req) {
 const uuid=(value)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 async function loadSharedGame(id) {
   if(!uuid(id))return null;
-  const game=(await readQuery(()=>db.database.from('bb_games').select('id,player1,player2,score1,score2,matches,date,revision').eq('id',id).limit(1)))[0];
+  const game=(await readQuery(()=>db.database.from('nb_games').select('id,player1,player2,score1,score2,matches,date,revision').eq('id',id).limit(1)))[0];
   if(!game)return null;
-  const players=await readQuery(()=>db.database.from('bb_players').select('id,name').in('id',[game.player1,game.player2]).limit(2));
+  const players=await readQuery(()=>db.database.from('nb_players').select('id,name').in('id',[game.player1,game.player2]).limit(2));
   return {game,players};
 }
 function checkOrigin(req) {
@@ -69,16 +69,16 @@ async function api(req,res,url) {
     if(req.method==='POST') {
       if(typeof body.enabled!=='boolean')throw error('Choose an email preference.');
       if(token && body.enabled!==false)throw error('Sign in to subscribe again.',403);
-      return rpc(daily?'bb_daily_preference':'bb_weekly_preference',{p_player:target,p_enabled:body.enabled});
+      return rpc(daily?'nb_daily_preference':'nb_weekly_preference',{p_player:target,p_enabled:body.enabled});
     }
-    const rows=await readQuery(()=>db.database.from('bb_players').select(field).eq('id',target).limit(1));
+    const rows=await readQuery(()=>db.database.from('nb_players').select(field).eq('id',target).limit(1));
     if(!rows.length)throw error('Player not found.',404);
     return {enabled:rows[0][field]};
   }
   const photo=/^\/photos\/([^/]+)$/.exec(path);
   if(photo && req.method==='GET') {
     if(!uuid(photo[1])) throw error('Photo not found.',404);
-    const rows=await readQuery(()=>db.database.from('bb_players').select('image_key').eq('id',photo[1]).limit(1));
+    const rows=await readQuery(()=>db.database.from('nb_players').select('image_key').eq('id',photo[1]).limit(1));
     if(!rows[0]?.image_key) throw error('Photo not found.',404);
     const blob=await readQuery(()=>db.storage.from('player-photos').download(rows[0].image_key));
     res.setHeader('Content-Type','image/webp');res.end(Buffer.from(await blob.arrayBuffer()));return null;
@@ -93,7 +93,7 @@ async function api(req,res,url) {
     return {url:gameShareURL({origin:config.origin,id:share[1],key:config.otpSecret})};
   }
   if(req.method==='POST' && path==='/auth/logout') {
-    await rpc('bb_sign_out',{p_token:who.tokenHash});
+    await rpc('nb_sign_out',{p_token:who.tokenHash});
     res.setHeader('Set-Cookie',cookie('',0));return {ok:true};
   }
   if(path==='/me' && req.method==='PATCH') {
@@ -115,17 +115,17 @@ async function api(req,res,url) {
         fields.image_key=uploaded.key;
       }
     }
-    await rpc('bb_player_action',{p_token:who.tokenHash,p_action:'profile.updated',p_body:fields});
+    await rpc('nb_player_action',{p_token:who.tokenHash,p_action:'profile.updated',p_body:fields});
     return {ok:true};
   }
   if(path==='/agent-keys' && req.method==='POST') {
-    const token=secret();const result=await rpc('bb_player_action',{p_token:who.tokenHash,p_action:'agent.connected',p_body:{label:String(body.label || '').trim(),token_hash:hash(token)}});
+    const token=secret();const result=await rpc('nb_player_action',{p_token:who.tokenHash,p_action:'agent.connected',p_body:{label:String(body.label || '').trim(),token_hash:hash(token)}});
     return {...result,token};
   }
   const key=/^\/agent-keys\/([^/]+)$/.exec(path);
   if(key && req.method==='DELETE') {
     if(!uuid(key[1])) throw error('Invalid connection.');
-    return rpc('bb_player_action',{p_token:who.tokenHash,p_action:'agent.disconnected',p_body:{id:key[1]}});
+    return rpc('nb_player_action',{p_token:who.tokenHash,p_action:'agent.disconnected',p_body:{id:key[1]}});
   }
   const match=/^\/games(?:\/([^/]+)(?:\/(comments|react|subscription))?)?$/.exec(path);
   if(match) {
@@ -139,16 +139,16 @@ async function api(req,res,url) {
       if(!Array.isArray(body.mentions || []) || (body.mentions || []).length>50 || (body.mentions || []).some(id=>!uuid(id))) throw error('Choose valid mentioned players.');
       body.text=String(body.text || '').trim();if(!body.text || body.text.length>500) throw error('Write a comment under 500 characters.');
       const handles=[...body.text.matchAll(/(?:^|\s)@([a-z0-9_]+)/gi)].map(m=>m[1].toLowerCase());
-      const mentions=handles.length ? await readQuery(()=>db.database.from('bb_players').select('id,username').in('username',[...new Set(handles)]).limit(50)) : [];
+      const mentions=handles.length ? await readQuery(()=>db.database.from('nb_players').select('id,username').in('username',[...new Set(handles)]).limit(50)) : [];
       if((body.mentions || []).some(id=>!mentions.some(p=>p.id===id))) throw error('Mention IDs must match handles in your comment.');
       body.mentions=mentions.map(p=>p.id);
     }
-    return rpc('bb_mutate',{p_token:who.tokenHash,p_action:operation,p_game:id || null,p_body:body,
+    return rpc('nb_mutate',{p_token:who.tokenHash,p_action:operation,p_game:id || null,p_body:body,
       p_key:req.headers['idempotency-key'] || null,p_fingerprint:hash(JSON.stringify({operation,id,body}))});
   }
   throw error('Not found.',404);
 }
-const environment=await readQuery(()=>db.database.from('bb_environment').select('environment').eq('singleton',true).limit(1));
+const environment=await readQuery(()=>db.database.from('nb_environment').select('environment').eq('singleton',true).limit(1));
 if(environment[0]?.environment!==config.environment) throw new Error('Backend environment does not match APP_ENV. Refusing to start.');
 http.createServer(async(req,res)=>{
   res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','same-origin');
@@ -164,15 +164,15 @@ http.createServer(async(req,res)=>{
     }
     let path=url.pathname;
     if(path==='/') path='/index.html';
-    if(!allowed.has(path) && path!=='/images/burnttable.jpg') throw error('Not found.',404);
-    const bytes=await readFile(resolve(root,path==='/agent.md'?'skills/burntboard/SKILL.md':'.'+path)).catch(()=>{throw error('Not found.',404);});
+    if(!allowed.has(path)) throw error('Not found.',404);
+    const bytes=await readFile(resolve(root,path==='/agent.md'?'skills/nalaboard/SKILL.md':'.'+path)).catch(()=>{throw error('Not found.',404);});
     res.setHeader('Content-Type',mime[extname(path)] || 'application/octet-stream');res.end(bytes);
   } catch(e) {
     res.statusCode=e.status || 500;res.setHeader('Content-Type','application/json');
     res.end(JSON.stringify({error:e.status?e.message:'Something went wrong. Try again.'}));
     if(!e.status) console.error('Request failed.');
   }
-}).listen(Number(process.env.PORT || 4173),process.env.HOST || '127.0.0.1',()=>console.log(`Burntboard ${config.environment}: ${config.origin}`));
+}).listen(Number(process.env.PORT || 4173),process.env.HOST || '127.0.0.1',()=>console.log(`Nalaboard ${config.environment}: ${config.origin}`));
 let nextScheduleCheck=0;
 const delivery=setInterval(()=>{
   if(!config.deliveryEnabled)return;

@@ -2,13 +2,13 @@
   "routes": [
     {
       "src": "/(.*)",
-      "has": [{ "type": "host", "value": "www.burntboard.com" }],
-      "headers": { "Location": "https://burntboard.com/$1" },
+      "has": [{ "type": "host", "value": "www.nalaboard.com" }],
+      "headers": { "Location": "https://nalaboard.com/$1" },
       "status": 308
     },
     {
       "src": "/(.*)",
-      "dest": "https://burntboard-e4bf0edf-79f4-47b0-ba08-a459cd6a7955.fly.dev/$1",
+      "dest": "__COMPUTE_ORIGIN__/$1",
       "transforms": [{
         "type": "request.headers",
         "op": "set",

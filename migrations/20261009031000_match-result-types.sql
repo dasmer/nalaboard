@@ -1,5 +1,5 @@
 -- Add result types without rewriting games, scores, or audit history.
-create or replace function public.bb_series_wins(matches jsonb, side integer) returns integer
+create or replace function public.nb_series_wins(matches jsonb, side integer) returns integer
 language plpgsql immutable strict set search_path=pg_catalog,public,pg_temp as $$
 declare m jsonb; a integer; b integer; wins1 integer:=0; wins2 integer:=0;
 begin
@@ -22,17 +22,17 @@ begin
   if greatest(wins1,wins2)<>2 then return null; end if;
   return case when side=1 then wins1 else wins2 end;
 end; $$;
-revoke all on function public.bb_series_wins(jsonb,integer) from public,anon,authenticated;
-grant execute on function public.bb_series_wins(jsonb,integer) to project_admin;
+revoke all on function public.nb_series_wins(jsonb,integer) from public,anon,authenticated;
+grant execute on function public.nb_series_wins(jsonb,integer) to project_admin;
 
-create or replace function public.bb_standings() returns jsonb language sql stable set search_path = pg_catalog, public, pg_temp as $$
+create or replace function public.nb_standings() returns jsonb language sql stable set search_path = pg_catalog, public, pg_temp as $$
 with periods(period,start_date) as (
   values ('all',date '0001-01-01'),
-    ('month',date_trunc('month',now() at time zone 'America/Los_Angeles')::date),
-    ('week',date_trunc('week',now() at time zone 'America/Los_Angeles')::date)
+    ('month',date_trunc('month',now() at time zone 'Europe/London')::date),
+    ('week',date_trunc('week',now() at time zone 'Europe/London')::date)
 ), sides as (
-  select player1 id,player2 opponent,(score1>score2)::int win,date from public.bb_games
-  union all select player2,player1,(score2>score1)::int,date from public.bb_games
+  select player1 id,player2 opponent,(score1>score2)::int win,date from public.nb_games
+  union all select player2,player1,(score2>score1)::int,date from public.nb_games
 ), totals as (
   select periods.period,sides.id,count(*) played,sum(win) wins,count(*)-sum(win) losses,
     round(sum(win)*100.0/count(*)) rate
@@ -49,5 +49,5 @@ select jsonb_build_object('standings',(select jsonb_object_agg(period,rows) from
   'weekStart',(select start_date from periods where period='week'),
   'monthStart',(select start_date from periods where period='month'));
 $$;
-revoke all on function public.bb_standings() from public,anon,authenticated;
-grant execute on function public.bb_standings() to project_admin;
+revoke all on function public.nb_standings() from public,anon,authenticated;
+grant execute on function public.nb_standings() to project_admin;
