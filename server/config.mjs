@@ -9,7 +9,7 @@ export const config = {
   apiKey: process.env.INSFORGE_API_KEY || linked.api_key,
   resendKey: process.env.RESEND_API_KEY,
   otpSecret: process.env.OTP_SECRET,
-  from: 'Burntboard <info@burntboard.com>',
+  from: 'Nalaboard <info@nalaboard.com>',
   testRecipients: (process.env.EMAIL_TEST_RECIPIENTS || '').split(',').filter(Boolean),
   testSink: process.env.EMAIL_TEST_SINK,
   deliveryEnabled: process.env.APP_ENV === 'production' || process.env.EMAIL_DELIVERY_ENABLED !== 'false',

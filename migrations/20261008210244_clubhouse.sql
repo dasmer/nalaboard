@@ -1,18 +1,18 @@
--- Burntboard owns authentication. Only the trusted app server accesses these
+-- Nalaboard owns authentication. Only the trusted app server accesses these
 -- tables; InsForge's anon/authenticated roles never receive business data.
-create table public.bb_players (
+create table public.nb_players (
   id uuid primary key default gen_random_uuid(),
-  email text not null unique check (email = lower(email) and email ~ '^[^@[:space:]]+@(useallowance\.com|getburnt\.ai)$'),
+  email text not null unique check (email = lower(email) and email ~ '^[^@[:space:]]+@(useallowance\.com|nala\.money)$'),
   name text not null check (length(name) between 1 and 80),
   username text not null unique check (username ~ '^[a-z0-9_]{2,24}$'),
   bio text not null default '' check (length(bio) <= 240),
   avatar text not null default '🏓',
-  color text not null default '#739783' check (color ~ '^#[0-9a-fA-F]{6}$'),
+  color text not null default '#00a2dc' check (color ~ '^#[0-9a-fA-F]{6}$'),
   image_key text,
   notifications boolean not null default true,
   created_at timestamptz not null default now()
 );
-create table public.bb_otp (
+create table public.nb_otp (
   email text primary key,
   code_hash text not null,
   attempts integer not null default 0,
@@ -20,14 +20,14 @@ create table public.bb_otp (
   requested_at timestamptz not null default now(),
   consumed_at timestamptz
 );
-create table public.bb_rate_limits (
+create table public.nb_rate_limits (
   key text primary key,
   count integer not null default 1,
   window_start timestamptz not null default now()
 );
-create table public.bb_sessions (
+create table public.nb_sessions (
   id uuid primary key default gen_random_uuid(),
-  player_id uuid not null references public.bb_players(id),
+  player_id uuid not null references public.nb_players(id),
   token_hash text not null unique,
   kind text not null check (kind in ('web', 'agent')),
   label text not null default 'Browser',
@@ -35,9 +35,9 @@ create table public.bb_sessions (
   created_at timestamptz not null default now(),
   revoked_at timestamptz
 );
-create index bb_sessions_player on public.bb_sessions(player_id);
+create index nb_sessions_player on public.nb_sessions(player_id);
 -- Completed best-of-three games only; reject extra matches after a sweep.
-create function public.bb_series_wins(matches jsonb, side integer) returns integer
+create function public.nb_series_wins(matches jsonb, side integer) returns integer
 language plpgsql immutable strict set search_path=pg_catalog,public,pg_temp as $$
 declare m jsonb; a integer; b integer; wins1 integer:=0; wins2 integer:=0;
 begin
@@ -54,49 +54,49 @@ begin
   if greatest(wins1,wins2)<>2 then return null; end if;
   return case when side=1 then wins1 else wins2 end;
 end; $$;
-revoke all on function public.bb_series_wins(jsonb,integer) from public,anon,authenticated;
-grant execute on function public.bb_series_wins(jsonb,integer) to project_admin;
-create table public.bb_games (
+revoke all on function public.nb_series_wins(jsonb,integer) from public,anon,authenticated;
+grant execute on function public.nb_series_wins(jsonb,integer) to project_admin;
+create table public.nb_games (
   id uuid primary key default gen_random_uuid(),
-  player1 uuid not null references public.bb_players(id),
-  player2 uuid not null references public.bb_players(id),
+  player1 uuid not null references public.nb_players(id),
+  player2 uuid not null references public.nb_players(id),
   matches jsonb not null,
-  score1 integer generated always as (public.bb_series_wins(matches,1)) stored not null,
-  score2 integer generated always as (public.bb_series_wins(matches,2)) stored not null,
+  score1 integer generated always as (public.nb_series_wins(matches,1)) stored not null,
+  score2 integer generated always as (public.nb_series_wins(matches,2)) stored not null,
   date date not null,
   notes text not null default '' check (length(notes) <= 240),
   revision integer not null default 1,
   created_at timestamptz not null default now(),
   check (player1 <> player2)
 );
-create index bb_games_date on public.bb_games(date desc, created_at desc);
-create table public.bb_comments (
+create index nb_games_date on public.nb_games(date desc, created_at desc);
+create table public.nb_comments (
   id uuid primary key default gen_random_uuid(),
-  game_id uuid not null references public.bb_games(id),
-  player_id uuid not null references public.bb_players(id),
+  game_id uuid not null references public.nb_games(id),
+  player_id uuid not null references public.nb_players(id),
   text text not null check (length(text) between 1 and 500),
   mentions uuid[] not null default '{}',
   agent text,
   created_at timestamptz not null default now(),
   deleted_at timestamptz
 );
-create index bb_comments_game on public.bb_comments(game_id, created_at);
-create table public.bb_subscriptions (
-  game_id uuid not null references public.bb_games(id),
-  player_id uuid not null references public.bb_players(id),
+create index nb_comments_game on public.nb_comments(game_id, created_at);
+create table public.nb_subscriptions (
+  game_id uuid not null references public.nb_games(id),
+  player_id uuid not null references public.nb_players(id),
   muted boolean not null default false,
   primary key(game_id, player_id)
 );
-create table public.bb_reactions (
-  game_id uuid not null references public.bb_games(id),
-  player_id uuid not null references public.bb_players(id),
+create table public.nb_reactions (
+  game_id uuid not null references public.nb_games(id),
+  player_id uuid not null references public.nb_players(id),
   emoji text not null check (emoji in ('🔥','🏓','😂','👏','😤')),
   primary key(game_id, player_id)
 );
-create table public.bb_activity (
+create table public.nb_activity (
   id uuid primary key default gen_random_uuid(),
-  actor uuid not null references public.bb_players(id),
-  game_id uuid references public.bb_games(id),
+  actor uuid not null references public.nb_players(id),
+  game_id uuid references public.nb_games(id),
   action text not null,
   description text not null,
   agent text,
@@ -104,11 +104,11 @@ create table public.bb_activity (
   after_data jsonb,
   created_at timestamptz not null default now()
 );
-create index bb_activity_game on public.bb_activity(game_id, created_at);
-create table public.bb_outbox (
+create index nb_activity_game on public.nb_activity(game_id, created_at);
+create table public.nb_outbox (
   id uuid primary key default gen_random_uuid(),
   event_id uuid not null,
-  recipient uuid not null references public.bb_players(id),
+  recipient uuid not null references public.nb_players(id),
   subject text not null,
   payload jsonb not null,
   created_at timestamptz not null default now(),
@@ -119,8 +119,8 @@ create table public.bb_outbox (
   last_error text,
   unique(event_id, recipient)
 );
-create table public.bb_requests (
-  player_id uuid not null references public.bb_players(id),
+create table public.nb_requests (
+  player_id uuid not null references public.nb_players(id),
   key text not null,
   fingerprint text not null,
   response jsonb not null,
@@ -128,7 +128,7 @@ create table public.bb_requests (
   primary key(player_id, key)
 );
 do $$ declare t text; begin
-  foreach t in array array['bb_players','bb_otp','bb_rate_limits','bb_sessions','bb_games','bb_comments','bb_subscriptions','bb_reactions','bb_activity','bb_outbox','bb_requests'] loop
+  foreach t in array array['nb_players','nb_otp','nb_rate_limits','nb_sessions','nb_games','nb_comments','nb_subscriptions','nb_reactions','nb_activity','nb_outbox','nb_requests'] loop
     execute format('alter table public.%I enable row level security', t);
     execute format('revoke all on public.%I from public, anon, authenticated', t);
     execute format('grant all on public.%I to project_admin', t);

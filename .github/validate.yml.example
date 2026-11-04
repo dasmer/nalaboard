@@ -1,4 +1,4 @@
-name: Validate Burntboard
+name: Validate Nalaboard
 
 on:
   push:

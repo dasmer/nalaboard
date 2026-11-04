@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {otpEmail,activityEmail} from '../server/email-templates.mjs';
-const origin='https://burntboard.com', gameId='example-game';
+const origin='https://nalaboard.com', gameId='example-game';
 const base={origin,recipientId:'example-player',actorName:'Alex <script>alert(1)</script>',player1Name:'Alex & Sam',player2Name:'Jordan'};
 const after={score1:2,score2:1,matches:[{score1:11,score2:7},{type:'unrecorded',winner:2},{type:'deuce',winner:1}]};
 const otp=otpEmail({origin,code:'012345'});
@@ -16,12 +16,12 @@ for(const payload of [
   assert.ok(!html.includes('<script>') && !html.includes('<img src=x'));
   assert.ok(html.includes('&lt;script&gt;'));
   if(payload.action==='agent.connected') {
-    assert.ok(html.includes('href="https://burntboard.com/#agents"'));
+    assert.ok(html.includes('href="https://nalaboard.com/#agents"'));
     assert.ok(text.includes('Manage agent connection:') && !text.includes('View game:'));
     assert.ok(html.includes('If you didn’t create this connection'));
   } else {
-    assert.ok(html.includes('href="https://burntboard.com/#match/example-game"'));
-    assert.ok(html.includes('href="https://burntboard.com/#profile/example-player"'));
+    assert.ok(html.includes('href="https://nalaboard.com/#match/example-game"'));
+    assert.ok(html.includes('href="https://nalaboard.com/#profile/example-player"'));
   }
   if(payload.action==='comment.added') assert.ok(html.includes('<br>@jordan Great game!'));
   if(payload.after) assert.ok(html.includes('Alex &amp; Sam') && text.includes('won in deuce'));

@@ -23,9 +23,9 @@ db.database.from=table=>{
   const chain={select(){return this},eq(){return this},in(key,value){ids=value;return this},limit(){return this},
     update(value){update=value;return this},then(resolve,reject){
       let data;
-      if(table==='bb_games'){gameLookups++;data=[{player1:'a',player2:'b'}];}
-      else if(table==='bb_players')data=[{id:'a',name:'Alex',email:'a@example.test'},{id:'b',name:'Jordan',email:'b@example.test'}].filter(p=>ids.includes(p.id));
-      else {assert.equal(table,'bb_outbox');updates.push(update);data=[];}
+      if(table==='nb_games'){gameLookups++;data=[{player1:'a',player2:'b'}];}
+      else if(table==='nb_players')data=[{id:'a',name:'Alex',email:'a@example.test'},{id:'b',name:'Jordan',email:'b@example.test'}].filter(p=>ids.includes(p.id));
+      else {assert.equal(table,'nb_outbox');updates.push(update);data=[];}
       return Promise.resolve({data,error:null}).then(resolve,reject);
     }};
   return chain;

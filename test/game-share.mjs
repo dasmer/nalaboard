@@ -4,7 +4,7 @@ import {createHmac} from 'node:crypto';
 import sharp from 'sharp';
 import {gameShareURL,publicReceipt,serveGameShare} from '../game-share.mjs';
 const key='fixture-sharing-secret',game={id:'test-game',player1:'a',player2:'b',score1:2,score2:1,date:'2026-10-08',revision:1,
-  matches:[{score1:11,score2:7},{score1:9,score2:11},{score1:14,score2:12}],notes:'PRIVATE NOTES',history:['PRIVATE HISTORY'],comments:['PRIVATE COMMENT']};
+  matches:[{score1:11,score2:7},{score1:9,score2:11},{type:'deuce',winner:1}],notes:'PRIVATE NOTES',history:['PRIVATE HISTORY'],comments:['PRIVATE COMMENT']};
 const players=[{id:'a',name:'Alex <script>alert(1)</script>',email:'PRIVATE EMAIL',image:'PRIVATE PHOTO'},{id:'b',name:'Jordan'}];
 const receipt=publicReceipt(game,players);
 assert.deepEqual(Object.keys(receipt).sort(),['date','matches','names','revision','score1','score2']);
@@ -13,7 +13,7 @@ const server=http.createServer(async(req,res)=>{try{if(!await serveGameShare(req
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));origin='http://127.0.0.1:'+server.address().port;
 try {
   const url=gameShareURL({origin,id:game.id,key});
-  assert.equal(url,`${origin}/g/${game.id}/${createHmac('sha256',key).update(`burntboard:game-share:v1:real:${game.id}`).digest('hex')}`,'Previously shared real links retain their signatures');
+  assert.equal(url,`${origin}/g/${game.id}/${createHmac('sha256',key).update(`nalaboard:game-share:v1:real:${game.id}`).digest('hex')}`,'Previously shared real links retain their signatures');
   for(const invalid of [url.slice(0,-1)+(url.endsWith('0')?'1':'0'),url.replace(game.id,'another-game'),url.replace('/g/','/demo/g/'),origin+'/g/test-game/invalid']) {
     assert.equal((await fetch(invalid)).status,404);
   }

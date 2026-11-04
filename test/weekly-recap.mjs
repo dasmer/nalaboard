@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import {weeklyEmail,weeklyLeaders,weeklyToken,weeklyTokenPlayer} from '../server/weekly-recap.mjs';
 const ids=['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333'];
-const players=ids.map((id,i)=>({id,name:['JJ','<Jay & Co>','Dasmer'][i],avatar:'🏓',color:'#739783'}));
+const players=ids.map((id,i)=>({id,name:['JJ','<Jay & Co>','Dasmer'][i],avatar:'🏓',color:'#00a2dc'}));
 const g=(id,p1,p2,a,b)=>({id,player1:ids[p1],player2:ids[p2],score1:a,score2:b,date:'2026-10-16'});
 const snapshot={weekStart:'2026-10-11',weekEnd:'2026-10-16',players,games:[g('a',0,1,2,1),g('b',0,2,2,0),g('c',2,0,2,1)]};
 assert.deepEqual(weeklyLeaders(snapshot),[{id:ids[0],wins:2,losses:1}]);
-const opts={snapshot,recipientId:ids[1],origin:'https://burntboard.com',key:'test-secret-only'};
-const email=weeklyEmail(opts);assert.equal(email.subject,'👑 JJ takes the week · Burntboard');
+const opts={snapshot,recipientId:ids[1],origin:'https://nalaboard.com',key:'test-secret-only'};
+const email=weeklyEmail(opts);assert.equal(email.subject,'👑 JJ takes the week · Nalaboard');
 assert(email.html.includes('&lt;Jay &amp; Co&gt;'));assert(!email.html.includes('<Jay & Co>'));
 assert(email.html.includes('Lost'));assert(email.html.includes('weekly-emails/'));assert(email.html.includes('See the board'));
 assert(!email.html.includes('TABLE TALK'));assert(!email.html.includes('YOUR WEEK'));
