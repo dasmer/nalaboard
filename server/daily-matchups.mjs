@@ -1,3 +1,4 @@
+import {emailBrand} from './email-templates.mjs';
 import {randomInt,createHmac,timingSafeEqual} from 'node:crypto';
 const compare=(a,b)=>a<b?-1:a>b?1:0;
 export const dailyToken=(id,key)=>id+'.'+createHmac('sha256',key).update('daily-preference-v1:'+id).digest('base64url');
@@ -77,7 +78,7 @@ export function dailyEmail({snapshot,recipientId,origin,key,activeIds}) {
   const recap=results.length?`<tr><td style="padding:8px 24px 22px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" bgcolor="#f5f9fc" style="border-radius:12px"><tr><td style="padding:20px 16px 5px">${opponents.length?'<h2 style="font-size:18px;letter-spacing:-.4px;margin:0 0 13px">Yesterday at the table</h2>':''}<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="table-layout:fixed">${rows}</table></td></tr></table></td></tr>`:'';
   const html=`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;background:#f5f9fc;font-family:Arial,Helvetica,sans-serif;color:#1c2024">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" bgcolor="#f5f9fc"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:18px">
-<tr><td bgcolor="#12232e" style="padding:23px 24px;border-radius:18px 18px 0 0;border-bottom:4px solid #007fae"><a href="${e(origin)}/#feed" style="font-size:23px;font-weight:900;letter-spacing:-1px;color:#ffffff;text-decoration:none">NALA<span style="color:#007fae">BOARD.</span></a></td></tr>
+<tr><td bgcolor="#f5f9fc" style="padding:23px 24px;border-radius:18px 18px 0 0;border-bottom:4px solid #007fae">${emailBrand(origin)}</td></tr>
 <tr><td style="padding:28px 24px 24px"><p style="font-size:10px;letter-spacing:1.6px;color:#00658a;font-weight:bold;text-transform:uppercase;margin:0 0 12px">${e(date)}</p><h1 style="font-size:34px;letter-spacing:-1px;line-height:1.1;margin:0">${title}</h1></td></tr>
 ${cards}${recap}
 <tr><td align="center" style="padding:5px 24px 25px;font-size:11px"><a href="${e(preference)}" style="color:#60646c">Manage daily matchups</a></td></tr></table></td></tr></table></body></html>`;
