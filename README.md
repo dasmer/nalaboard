@@ -61,15 +61,24 @@ Nalaboard owns separate EU projects:
 | Production | `dc9303b5-c5fd-46fe-b6b0-19c0c0065d1e` | `https://hsgng6dw.eu-central.insforge.app` |
 | Test | `6fe9e22b-0892-486d-871f-5ef4816958e9` | `https://b9d6fq5r.eu-central.insforge.app` |
 
-These project IDs/URLs are public identifiers, not credentials. The production project is provisioned but the app is not deployed. Production schema setup, verified Resend sender, domain routing, and real employee login verification are release steps. Keep credentials in ignored local configuration and hosting secrets; never copy Burntboard’s keys, backend links, routing, or user data.
+Live at **https://nalaboard.com**, with `www` redirected to the apex. These project IDs/URLs are public identifiers, not credentials. Production schema, private storage, verified Resend sending, domain routing, and HTTPS are configured. Public reads, rejected login domains, rejected unauthenticated writes, protected compute origin, and a real owner sign-in email were smoke tested. The nominated Nala pilot still needs to complete their own onboarding. Keep credentials in ignored local configuration and hosting secrets; never copy Burntboard’s keys, backend links, routing, or user data.
 
-After the PR is approved for merge and deployment:
+For future approved releases:
 
-1. Link a release checkout to **nalaboard-production** and verify the project ID. Apply migrations with `npx -y @insforge/cli db migrations up --all`. Set the new `nb_environment` marker to `production`; do not import test fixtures. Ensure `player-photos` is private.
+1. Link a release checkout to **nalaboard-production** and verify the project ID. Apply migrations with `npx -y @insforge/cli db migrations up --all`. Preserve the `nb_environment` marker as `production`; do not import test fixtures. Ensure `player-photos` is private.
 2. Verify `nalaboard.com` with Resend and configure `Nalaboard <info@nalaboard.com>`. Use a dedicated sending key. Set production `INSFORGE_URL`, `INSFORGE_API_KEY`, `RESEND_API_KEY`, fresh strong `OTP_SECRET` and `ORIGIN_SECRET`, `APP_ENV=production`, `APP_ORIGIN=https://nalaboard.com`, and `TRUST_PROXY=true`. Omit all test routing settings.
-3. Deploy the Node app to new always-on InsForge compute, named `nalaboard`, with the server-only env file. Record the **returned** compute origin; no source deployment runs automatically after a merge.
-4. Copy `hosting/vercel.template.json` to ignored `hosting/vercel.json`, replacing `__COMPUTE_ORIGIN__` with the verified compute origin (no trailing slash). Deploy `hosting/` through InsForge with the same `ORIGIN_SECRET`. The proxy supplies this secret before the Node server trusts forwarded visitor IPs. Direct-origin requests must be rejected.
-5. Attach `nalaboard.com` and `www.nalaboard.com`. Using the signed-in Namecheap browser, enter only the DNS records returned by hosting and Resend; preserve unrelated records. Verify HTTPS, www redirect, app assets, public reads, direct-origin rejection, and disallowed login domains.
+3. Update the existing always-on InsForge compute service named `nalaboard`, using `npx -y @insforge/cli compute deploy . --name nalaboard --region lhr --always-on --env-file .env.production`. No source deployment runs automatically after a merge.
+4. Deploy `hosting/` only when routing changes. The tracked `hosting/vercel.json` points to the existing Nalaboard compute origin. Keep the same `ORIGIN_SECRET` in frontend hosting and compute; the proxy supplies it before Node trusts forwarded visitor IPs. Direct-origin requests must remain rejected.
+5. Preserve the existing Namecheap DNS and email forwarding. Domain attachment, HTTPS, website records, and Resend DKIM/sending records are already configured. If changing providers, use only returned records and preserve unrelated entries. Verify HTTPS, www redirect, app assets, public reads, direct-origin rejection, and disallowed login domains.
 6. Ask the nominated pilot, Benjamin, to complete a real email-code login and onboarding. Fixture tests do not establish email receipt or employee acceptance. Do not manufacture player identities or game results in production.
 
 For a future Nala handover, transfer the GitHub repository and InsForge project, arrange ownership of Resend and Namecheap DNS, rotate operational secrets, and give the team the release checklist above. Transfer real accounts; never hand over plaintext keys in repository documentation.
+
+## Live deployment record
+
+- Application release: PR #1, commit `3858a103734322da71ec5f95d343021614291362`.
+- Compute: `e145bac3-a9f1-40ea-ab94-dbd7839837cb`, service `nalaboard`, London (`lhr`), always on (`scaleToZero=false`).
+- Protected origin: `https://nalaboard-dc9303b5-c5fd-46fe-b6b0-19c0c0065d1e.fly.dev`.
+- Resend: `Nalaboard <info@nalaboard.com>`, Ireland region, dedicated sending key restricted to `nalaboard.com`. The key remains server-only.
+- DNS: apex A `216.150.16.1`; www CNAME `9764b2d95437e210.vercel-dns-016.com`; `rsend` CNAME `rsend-euw1.forge.rmta.net`; `send` CNAME `send.forge.rmta.net`; provider-generated DKIM TXT at `resend._domainkey`. The existing apex email forwarding MX/SPF were preserved.
+- Production launched empty. The email smoke check requested a code for the owner; it did not create a player or invent results. No message was sent to the Nala pilot.
