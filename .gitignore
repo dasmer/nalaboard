@@ -15,6 +15,3 @@ coverage/
 
 .vscode/
 .idea/
-
-# Generated from hosting/vercel.template.json at release.
-hosting/vercel.json

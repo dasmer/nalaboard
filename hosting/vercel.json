@@ -8,7 +8,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "__COMPUTE_ORIGIN__/$1",
+      "dest": "https://nalaboard-dc9303b5-c5fd-46fe-b6b0-19c0c0065d1e.fly.dev/$1",
       "transforms": [{
         "type": "request.headers",
         "op": "set",
