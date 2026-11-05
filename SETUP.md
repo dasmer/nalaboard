@@ -1,6 +1,6 @@
 # Join Nalaboard
 
-1. Open [nalaboard.com](https://nalaboard.com) and sign in with your `@nala.money` or `@useallowance.com` email. Enter the six-digit code from your inbox.
+1. Open [nalaboard.com](https://nalaboard.com) and sign in with your `@nala.money`, `@rafiki.com`, or `@useallowance.com` email. Enter the six-digit code from your inbox.
 2. Set your username, display name, photo or avatar, and bio on your player card.
 3. Choose **Record game**, select your opponent, and enter the match results. Games are best of three; the third match appears when the first two are split.
 

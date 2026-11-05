@@ -435,7 +435,7 @@ function modal(html, {record = false, focus = null} = {}) {
 }
 function signIn() {
   modal(
-    `<div class="eyebrow orange">WELCOME TO THE CLUB</div><h2>Your next rival<br>is already here.</h2><p class="muted">Your work email. Your seat at the table.</p><form data-form="email"><label for="email">Work email</label><input id="email" type="email" name="email" placeholder="you@nala.money" autocomplete="email" required><div class="form-error" role="alert"></div><button class="btn primary full" style="margin-top:20px">Send sign-in code ${icon("arrow")}</button></form><p class="tooltip-note" style="text-align:center">For @nala.money and @useallowance.com players.</p>`,
+    `<div class="eyebrow orange">WELCOME TO THE CLUB</div><h2>Your next rival<br>is already here.</h2><p class="muted">Your work email. Your seat at the table.</p><form data-form="email"><label for="email">Work email</label><input id="email" type="email" name="email" placeholder="you@nala.money" autocomplete="email" required><div class="form-error" role="alert"></div><button class="btn primary full" style="margin-top:20px">Send sign-in code ${icon("arrow")}</button></form><p class="tooltip-note" style="text-align:center">For Nala, Rafiki, and Allowance teammates.</p>`,
   );
 }
 function otp(email) {
