@@ -24,7 +24,7 @@ async function login(suffix,kind='web',domain='nala.money') {
   const email=`${prefix}${suffix}@${domain}`,code='123450';
   const p_hash=createHmac('sha256',config.otpSecret).update(email+':'+code).digest('hex');
   await rpc('nb_request_otp',{p_email:email,p_hash,p_ip:prefix+suffix});
-  const result=await call('/auth/verify','POST',{email,code,kind});
+  const result=await call('/auth/verify','POST',{email:domain==='rafiki.com'?'  '+email.toUpperCase()+'  ':email,code,kind});
   check(result.status,200);
   check((await call('/auth/verify','POST',{email,code,kind})).status,401,'OTP cannot be reused');
   const auth=kind==='web'?{Cookie:result.cookie.split(';')[0]}:{Authorization:'Bearer '+result.value.token};
@@ -34,14 +34,14 @@ async function login(suffix,kind='web',domain='nala.money') {
   const user=snapshot.value.user;
   return {email,auth,user};
 }
-const a=await login('a'),b=await login('b','web','useallowance.com'),c=await login('c'),d=await login('d');
+const a=await login('a'),b=await login('b','web','useallowance.com'),c=await login('c','web','rafiki.com'),d=await login('d');
 const publicState=(await call('/state')).value;
 check(publicState.players.some(p=>p.id===a.user.id),true,'Anonymous visitors can browse players');
 check(publicState.players.some(p=>'email' in p || 'notifications' in p),false,'Public players omit account fields');
 check(publicState.user,null);check(publicState.keys,[]);check(publicState.activity,[]);
 check((await call('/auth/request','POST',{email:'outsider@example.com'})).status,400);
 check((await call('/auth/request','POST',{email:'bob@am.useallowance.com'})).status,400,'Test sink does not expand signup allowlist');
-for (const domain of ['nala.com','getburnt.ai','sub.nala.money','nala.money.evil.test']) {
+for (const domain of ['nala.com','getburnt.ai','sub.nala.money','nala.money.evil.test','sub.rafiki.com','rafiki.com.evil.test','rafikicom']) {
   const email=prefix+'outsider@'+domain;
   check((await call('/auth/request','POST',{email})).status,400,'Server rejects '+domain);
   const requested=await query(db.database.rpc('nb_request_otp',{p_email:email,p_hash:'fixture',p_ip:prefix}));

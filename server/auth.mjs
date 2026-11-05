@@ -10,7 +10,7 @@ const otpHash=(email,code)=>{
 };
 export const emailAddress=(input)=>{
   const email=String(input || '').trim().toLowerCase();
-  if (email.length>254 || !/^[^@\s]+@(useallowance\.com|nala\.money)$/.test(email)) throw error('Use your @nala.money or @useallowance.com email.');
+  if (email.length>254 || !/^[^@\s]+@(useallowance\.com|nala\.money|rafiki\.com)$/.test(email)) throw error('Use your @nala.money, @rafiki.com, or @useallowance.com email.');
   return email;
 };
 export function cookie(token,maxAge=30*86400) {

@@ -2,7 +2,7 @@
 
 Good colleagues. Great rivals. The Nala team’s table tennis clubhouse in Canary Wharf, London, adapted from [Burntboard](https://github.com/dasmer/burntboard).
 
-Public game feeds, player cards, standings, rivalries, comments with @mentions, reactions, correction history, shareable game receipts, and personal agent connections. Sign in with an exact **@nala.money** or **@useallowance.com** address. Other domains, including @nala.com, cannot join.
+Public game feeds, player cards, standings, rivalries, comments with @mentions, reactions, correction history, shareable game receipts, and personal agent connections. Sign in with an exact **@nala.money**, **@rafiki.com**, or **@useallowance.com** address. Other domains, including @nala.com, cannot join.
 
 Games are best of three matches, played to 11. Record exact scores from 11–0 through 11–9, choose a deuce winner, or record who won when the score is forgotten. Two match wins finish the game. Standings count game wins, then fewest losses; equal records share a rank. Participants can correct results with revision checks and a preserved paper trail. Players join themselves; there is no administrator role or imported roster.
 
