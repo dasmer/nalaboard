@@ -13,7 +13,7 @@ import {deliverOutbox,queueWeeklyRecap,queueDailyMatchups} from './server/email.
 import {matchShareURL,serveMatchShare} from './match-share.mjs';
 import {checkProxy,clientIp} from './server/proxy.mjs';
 const root=resolve('.');
-const allowed=new Set(['/index.html','/client.js','/client.css','/favicon.svg','/brand-logo.png','/brand-icon.png','/apple-touch-icon.png','/og-card.png','/agent.md','/series.mjs','/display-client.mjs','/bigscreen.html','/bigscreen.js','/bigscreen.css','/activate.html','/activate.js']);
+const allowed=new Set(['/index.html','/client.js','/client.css','/favicon.svg','/brand-logo.png','/brand-icon.png','/apple-touch-icon.png','/og-card.png','/bigscreen-og.png','/agent.md','/series.mjs','/display-client.mjs','/bigscreen.html','/bigscreen.js','/bigscreen.css','/activate.html','/activate.js']);
 const mime={'.mjs':'text/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.jpg':'image/jpeg','.png':'image/png','.md':'text/markdown; charset=utf-8'};
 async function jsonBody(req) {
   const chunks=[];let size=0;
