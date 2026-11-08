@@ -113,6 +113,15 @@ function updateBackButton() {
   document.querySelector("#entry-back").hidden =
     !document.fullscreenElement ||
     !["me", "opponent", "score", "local", "otp"].includes(scene);
+  const fullscreen = document.querySelector("#fullscreen");
+  const encourage = scene === "board" && !document.fullscreenElement;
+  fullscreen.classList.toggle("prominent", encourage);
+  fullscreen.textContent = document.fullscreenElement
+    ? "Exit fullscreen"
+    : encourage
+      ? "Enter fullscreen"
+      : "Fullscreen";
+  fullscreen.setAttribute("aria-label", fullscreen.textContent);
 }
 function render() {
   updateBackButton();
@@ -594,11 +603,6 @@ document.querySelector("#fullscreen").addEventListener("click", async () => {
 });
 document.addEventListener("fullscreenchange", () => {
   updateBackButton();
-  const button = document.querySelector("#fullscreen");
-  button.textContent = document.fullscreenElement
-    ? "Exit fullscreen"
-    : "Fullscreen";
-  button.setAttribute("aria-label", button.textContent);
 });
 setInterval(() => {
   updateExpiry();

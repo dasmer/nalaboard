@@ -842,3 +842,88 @@ input {
     font-size: 15px;
   }
 }
+
+/* Keep score entry and its final actions together in shorter laptop windows. */
+@media (min-width: 701px) and (max-height: 950px) {
+  .top {
+    padding-block: 12px;
+  }
+  .brand {
+    height: 42px;
+  }
+  #screen {
+    padding-block: 20px;
+  }
+  .score-screen h1 {
+    font-size: 34px;
+  }
+  .score-sides {
+    margin-block: 16px 10px;
+  }
+  .score-side {
+    padding: 12px;
+  }
+  .score-owner {
+    min-height: 44px;
+    padding-block: 0;
+    font-size: 24px;
+  }
+  .score-owner .avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 21px;
+  }
+  .owned-score {
+    font-size: 64px;
+    margin-block: 6px;
+  }
+  .owned-keypad {
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
+  }
+  .point {
+    min-height: 52px;
+    font-size: 24px;
+  }
+  .score-alts {
+    margin-top: 8px;
+  }
+  .score-alts .quiet {
+    min-height: 44px;
+    padding-block: 8px;
+  }
+  .game-chips {
+    margin-bottom: 12px;
+  }
+  .score-screen .actions {
+    margin-top: 16px;
+  }
+  .score-screen .action {
+    min-height: 56px;
+    padding-block: 12px;
+  }
+  .score-screen .single {
+    min-height: 48px;
+    margin-top: 8px;
+    font-size: 16px;
+  }
+  .score-screen .error:empty {
+    display: none;
+  }
+}
+#fullscreen.prominent {
+  background: var(--cyan);
+  color: var(--bg);
+  border-radius: 10px;
+  padding-inline: 20px;
+  font-weight: 500;
+}
+@media (max-width: 375px) {
+  .top {
+    flex-wrap: wrap;
+  }
+  .top-actions {
+    margin-left: auto;
+  }
+}
