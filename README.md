@@ -124,3 +124,13 @@ The `bigscreen-match-emails` migration enables both-recipient queueing and email
 Validation: `npm test`, the existing backend suites, and `npm run test:display-integration` against an isolated test server. Display fixtures must remain in `nalaboard-test` or `nalaboard-series-test`; test delivery is disabled. Real inbox delivery and physical office TV/iPad testing are separate acceptance checks.
 
 Brand assets: the header reuses Nalaboard’s existing dark-background logo treatment. Celebrations focus on the players and scores. Motion uses CSS and browser animation APIs; `qrcode` is the only new dependency and runs on the server.
+
+## Player deactivation
+
+Player admins open **Players**, select a player, then choose **Deactivate** or **Reactivate**. The initial player admins are the same two immutable account IDs as the initial display admins, with separate permission tables. Player management requires a personal browser session; agent and display credentials cannot use it, and admins cannot deactivate themselves.
+
+Deactivation revokes browser and agent sessions, invalidates pending sign-in codes, blocks new sign-ins and new matches, cancels queued emails, and removes the player from active rosters, pickers, daily lineups, current standings, and big-screen standings. Names, avatars, comments, past results, all-time standings, and direct profile links remain; the profile shows **Inactive**. Active opponents can still correct historical scores. Status changes are recorded in activity history without employment details.
+
+Reactivation restores participation and the player's existing email preferences, requires a fresh sign-in, and never restores old tokens or canceled emails. Shared displays stay activated when their activating admin is deactivated.
+
+Apply `20261108145007_player-deactivation.sql` before deploying the matching app. It is additive and does not deactivate any existing account. Validate with `npm test`, `npm run test:integration`, and `npm run test:player-status-integration` against the isolated test server. Production is never seeded for verification.

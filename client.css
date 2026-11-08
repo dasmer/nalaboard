@@ -311,7 +311,7 @@ svg {
   color: var(--green);
   margin-bottom: 10px;
 }
-.page-heading:has(.match-actions) { flex-wrap: wrap; }
+.page-heading:has(.match-actions), .page-heading:has([data-action="player-status"]) { flex-wrap: wrap; }
 .match-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .page-heading p {
   margin-top: 9px;
@@ -2283,3 +2283,5 @@ h3, .section-title h3 { font-size: 20px; }
 .single-game-choice:has(button[hidden]) { display:none; }
 .single-game-summary { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:13px; margin-bottom:12px; border-radius:12px; background:var(--paper); }
 .single-game-summary[hidden] { display:none; }
+
+.badge.inactive { background: #eef0f2; color: #60646c; }

@@ -1,0 +1,34 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {createContext,runInContext} from 'node:vm';
+const source=readFileSync(new URL('../client.js',import.meta.url),'utf8').replace(/^import .*\n/,'');
+const nodes=Object.fromEntries(['#app','#modal-root','#toast'].map(id=>[id,{innerHTML:'',style:{},classList:{add(){},remove(){}}}]));
+const context=createContext({console,Intl,URL,Set,Map,crypto,location:{hash:'#players',origin:'https://nalaboard.com'},history:{replaceState(){}},document:{querySelector:s=>nodes[s]||null,body:{style:{}},addEventListener(){}},window:{addEventListener(){},scrollTo(){}},requestAnimationFrame:fn=>fn(),setTimeout:()=>0,clearTimeout(){}});
+runInContext(source.slice(0,source.lastIndexOf('\n$("#app").innerHTML =')),context);
+const run=code=>runInContext(code,context);
+context.fixture={players:[{id:'a',name:'Alice',username:'alice',active:true},{id:'b',name:'David',username:'david',active:false}],matches:[],activity:[],keys:[],user:{id:'a',name:'Alice',username:'alice',active:true},standings:{all:[{id:'b',played:1,wins:1,losses:0,rate:100}],week:[{id:'b',played:1,wins:1,losses:0,rate:100}],month:[]},rivalries:[],pagination:{}};
+run('data=fixture;modal=html=>{globalThis.dialog=html;};toast=()=>{};');
+assert.ok(!run('players()').includes('David'),'Inactive player excluded from normal roster');
+assert.ok(!run('players()').includes('player-status-filter'),'Non-admin has no management filters');
+assert.ok(run("profile('b')").includes('David'));
+assert.ok(run("profile('b')").includes('Inactive'));
+assert.ok(!run("profile('b')").includes('data-action="record"'),'Inactive profile has no invitation to record');
+assert.ok(!run("profile('b')").includes('data-action="player-status"'),'Non-admin has no status controls');
+run('chooseOpponent()');assert.ok(!context.dialog.includes('David'),'Inactive opponent excluded from picker');
+assert.equal(run("board(null,'week').length"),0,'Current standings exclude inactive players even with stale totals');
+assert.equal(run("board(null,'all')[0].name"),'David','Historical standings preserved');
+run('data.playerAdmin=true;playerStatusFilter="inactive";');
+assert.ok(run('players()').includes('David'));assert.ok(!run('players()').includes('href="#profile/a"'));
+assert.ok(run("profile('b')").includes('Reactivate'));
+assert.ok(!run("profile('a')").includes('data-action="player-status"'),'Self-deactivation hidden');
+await run("action({dataset:{action:'player-status',playerId:'b'}})");
+assert.ok(context.dialog.includes('Reactivate David?'));assert.ok(context.dialog.includes('data-active="true"'));
+run("data.players[1].active=true");
+await run("action({dataset:{action:'player-status',playerId:'b'}})");
+assert.ok(context.dialog.includes('Deactivate David?'));assert.ok(context.dialog.includes('data-active="false"'));
+console.log('Player-status UI passed: active roster/picker, retained inactive profiles and history, admin-only controls, self protection and confirmation direction.');
+
+// A failed refresh after a successful status write must not throw against a closed dialog.
+run("api=async()=>({ok:true});closeModal=()=>{};refresh=async()=>{throw Error('Offline');};toast=message=>{globalThis.notice=message;};");
+await run("action({dataset:{action:'confirm-player-status',playerId:'b',active:'false'}})");
+assert.equal(context.notice,'Offline');
