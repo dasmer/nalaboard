@@ -2,9 +2,9 @@
 
 Good colleagues. Great rivals. The Nala team’s table tennis clubhouse in Canary Wharf, London, adapted from [Burntboard](https://github.com/dasmer/burntboard).
 
-Public game feeds, player cards, standings, rivalries, comments with @mentions, reactions, correction history, shareable game receipts, and personal agent connections. Sign in with an exact **@nala.money**, **@rafiki.com**, or **@useallowance.com** address. Other domains, including @nala.com, cannot join.
+Public match feeds, player cards, standings, rivalries, comments with @mentions, reactions, correction history, shareable match receipts, and personal agent connections. Sign in with an exact **@nala.money**, **@rafiki.com**, or **@useallowance.com** address. Other domains, including @nala.com, cannot join.
 
-Games default to best of three matches, played to 11. If you only played one, choose **Only played one game?** beside Match 2 after entering the first result. Record exact scores from 11–0 through 11–9, choose a deuce winner, or record who won when the score is forgotten. Two match wins finish best of three; one finishes a single game. Either format counts as one win/loss. Standings count game wins, then fewest losses; equal records share a rank. Participants can correct results with revision checks and a preserved paper trail. Players join themselves; there is no administrator role or imported roster.
+A **game** is played to 11; a **match** is the overall result. Matches default to best of three games: first to win two games wins the match. If you only played one game, choose **Only played one game?** below Game 1. Record exact scores from 11–0 through 11–9, choose a deuce winner, or record who won when the score is forgotten. Either format counts as one match win/loss. Standings count match wins, then fewest losses; equal records share a rank. Participants can correct results with revision checks and a preserved paper trail. Players join themselves; there is no administrator role or imported roster.
 
 ## Local development
 
@@ -20,21 +20,25 @@ PORT=4176 APP_ORIGIN=http://localhost:4176 npm run dev
 
 The ignored CLI link supplies the real backend URL and server-only admin key. Never put admin credentials in browser code. Set the test database’s `nb_environment` marker to `test` before starting. Keep `EMAIL_DELIVERY_ENABLED=false` for fixture runs. Login delivery has its own exact test-recipient allowlist; do not send fixture email to employees.
 
+## Terminology
+
+Use **game** for an individual contest to 11 and **match** for the complete result. Application helpers follow this vocabulary (`gameWinner`, `gameLabel`, `matchScore`, `matchFormat`). The API uses `/matches`, `matchId`, and a state `matches` list. Each match contains a `games` array; the database stores it in `nb_matches.games` with related `match_id` references and `match.*` events.
+
 ## Architecture and access
 
 A small Node HTTP server serves vanilla JavaScript/CSS and accesses InsForge with `createAdminClient`. The app owns email OTP login and opaque sessions; InsForge built-in user authentication is not used. Resend delivers single-use six-digit codes, valid for ten minutes with three verification attempts and email/IP rate limits. Browser sessions use HttpOnly cookies and expire in 30 days. Named agent keys expire in 90 days, are shown once, and can be revoked. Tokens and OTPs are stored as hashes.
 
 Database business tables and functions are unavailable to anonymous and authenticated backend roles. Every mutation is authorized by the app and database, with idempotency and transactions covering changes, audit history, and notification queueing. Photos are validated, resized WebP files in the private `player-photos` bucket and served through the app.
 
-The board is intentionally public: profiles, photos, games, notes, comments, reactions, and game correction history can be read without login. Emails, preferences, subscriptions, agent keys, and account activity require login. Only participants can create a signed game receipt link. Anyone holding that link can see names, scores, and date; receipt HTML/PNG excludes notes, comments, emails, photos, and account history. Signed links are unlisted, not confidential, and have no individual revocation. Rotating `OTP_SECRET` invalidates receipt and email-preference links.
+The board is intentionally public: profiles, photos, matches, notes, comments, reactions, and match correction history can be read without login. Emails, preferences, subscriptions, agent keys, and account activity require login. Only participants can create a signed match receipt link. Anyone holding that link can see names, scores, and date; receipt HTML/PNG excludes notes, comments, emails, photos, and account history. Signed links are unlisted, not confidential, and have no individual revocation. Rotating `OTP_SECRET` invalidates receipt and email-preference links.
 
 ## London emails
 
 All calendar boundaries use **Europe/London**, including British Summer Time.
 
-- Match, comment, mention, and agent-security emails retain Burntboard’s behaviour, with per-game mutes and a separate social email preference.
+- Match, comment, mention, and agent-security emails retain Burntboard’s behaviour, with per-match mutes and a separate social email preference.
 - Daily matchups arrive **Monday–Friday at 8 AM**, with up to two reciprocal random opponents, yesterday’s results, and fresh-opponent/rematch fallbacks. Delivery expires at 10 AM. Participation and delivery share one preference.
-- Weekly recaps arrive **Friday at 5 PM**, covering Monday through Friday’s cutoff and recognising the week’s winner(s). This Monday start matches the weekly standings. Later Friday games remain on the board but fall outside that week’s email snapshot.
+- Weekly recaps arrive **Friday at 5 PM**, covering Monday through Friday’s cutoff and recognising the week’s winner(s). This Monday start matches the weekly standings. Later Friday matches remain on the board but fall outside that week’s email snapshot.
 
 Daily and weekly preferences default on for new players and can be changed independently. Signed preference links allow an explicit opt-out without login; GET never changes preferences. The always-on server checks schedules every minute and drains the leased email queue every 15 seconds. Frozen snapshots, transactions, and provider idempotency prevent duplicate sends. Uncertain retries stop before Resend’s 24-hour deduplication window. Operators reconcile stuck outbox rows; there is no admin UI.
 
@@ -52,6 +56,18 @@ Integration suites refuse non-test project links and exercise real InsForge tran
 
 GitHub’s validation workflow is retained at `.github/validate.yml.example`. To activate it, a repository owner with GitHub `workflow` scope can move it to `.github/workflows/validate.yml`. The credential available during initial creation lacked that scope, so local checks are authoritative for the first PR.
 
+### Rehearse the terminology migration
+
+On a test project that has not applied `20261108040444_table-tennis-terminology.sql`, run:
+
+```sh
+node --env-file=.env.local test/terminology-migration.mjs before
+npx -y @insforge/cli db migrations up 20261108040444_table-tennis-terminology.sql
+node --env-file=.env.local test/terminology-migration.mjs after
+```
+
+The rehearsal verifies result IDs, generated scores, correction history, comments, reactions, subscriptions, queued email payloads, idempotency responses, and frozen recap snapshots. It creates and removes only isolated test fixtures.
+
 ## Independent environments and release
 
 Nalaboard owns separate EU projects:
@@ -63,6 +79,8 @@ Nalaboard owns separate EU projects:
 
 Live at **https://nalaboard.com**, with `www` redirected to the apex. These project IDs/URLs are public identifiers, not credentials. Production schema, private storage, verified Resend sending, domain routing, and HTTPS are configured. Public reads, rejected login domains, rejected unauthenticated writes, protected compute origin, and a real owner sign-in email were smoke tested. The nominated Nala pilot still needs to complete their own onboarding. Keep credentials in ignored local configuration and hosting secrets; never copy Burntboard’s keys, backend links, routing, or user data.
 
+For the terminology cutover, stop the old Node service before applying the pending migrations, then deploy the new server before resuming traffic. The old API and schema names are removed together; open browser tabs must reload. Existing match IDs, player records, scores, correction history, and signed receipt links are preserved. Do not run old server code against the renamed schema. No production cutover is authorized by an implementation PR alone.
+
 For future approved releases:
 
 1. Link a release checkout to **nalaboard-production** and verify the project ID. Apply migrations with `npx -y @insforge/cli db migrations up --all`. Preserve the `nb_environment` marker as `production`; do not import test fixtures. Ensure `player-photos` is private.
@@ -70,7 +88,7 @@ For future approved releases:
 3. Update the existing always-on InsForge compute service named `nalaboard`, using `npx -y @insforge/cli compute deploy . --name nalaboard --region lhr --always-on --env-file .env.production`. No source deployment runs automatically after a merge.
 4. Deploy `hosting/` only when routing changes. The tracked `hosting/vercel.json` points to the existing Nalaboard compute origin. Keep the same `ORIGIN_SECRET` in frontend hosting and compute; the proxy supplies it before Node trusts forwarded visitor IPs. Direct-origin requests must remain rejected.
 5. Preserve the existing Namecheap DNS and email forwarding. Domain attachment, HTTPS, website records, and Resend DKIM/sending records are already configured. If changing providers, use only returned records and preserve unrelated entries. Verify HTTPS, www redirect, app assets, public reads, direct-origin rejection, and disallowed login domains.
-6. Ask the nominated pilot, Benjamin, to complete a real email-code login and onboarding. Fixture tests do not establish email receipt or employee acceptance. Do not manufacture player identities or game results in production.
+6. Ask the nominated pilot, Benjamin, to complete a real email-code login and onboarding. Fixture tests do not establish email receipt or employee acceptance. Do not manufacture player identities or match results in production.
 
 For a future Nala handover, transfer the GitHub repository and InsForge project, arrange ownership of Resend and Namecheap DNS, rotate operational secrets, and give the team the release checklist above. Transfer real accounts; never hand over plaintext keys in repository documentation.
 

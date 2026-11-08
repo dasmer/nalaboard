@@ -52,13 +52,13 @@ export function dailyPairs(snapshot,random=randomInt) {
 export function dailyEmail({snapshot,recipientId,origin,key,activeIds}) {
   const e=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const opponents=snapshot.pairs.filter(pair=>pair.includes(recipientId)).map(pair=>snapshot.players.find(p=>p.id===pair.find(id=>id!==recipientId))).filter(p=>p&&(!activeIds||activeIds.includes(p.id)));
-  const results=snapshot.yesterdayGames||[];
+  const results=snapshot.yesterdayMatches||[];
   if(!opponents.length&&!results.length)return null;
   const reason=p=>{
     const h=snapshot.history.find(h=>[h.player1,h.player2].includes(recipientId)&&[h.player1,h.player2].includes(p.id));
     const yesterday=new Date(Date.parse(snapshot.day)-86400000).toISOString().slice(0,10);
     if(h?.lastPlayed===yesterday||(snapshot.excludedPairs||[]).some(pair=>pair.includes(recipientId)&&pair.includes(p.id)))return 'Run it back.';
-    if(!h)return 'A fresh matchup—no games together in four weeks.';
+    if(!h)return 'A fresh matchup—no matches together in four weeks.';
     const days=Math.round((Date.parse(snapshot.day)-Date.parse(h.lastPlayed))/86400000);
     return days===1?'Back to the table—last played yesterday.':`Time to catch up—last played ${days} days ago.`;
   };
