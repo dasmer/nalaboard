@@ -87,7 +87,19 @@ async function refresh() {
   const matchId = location.hash.startsWith("#match/") ? location.hash.slice(7) : null;
   const playerId = location.hash.startsWith("#profile/") ? location.hash.slice(9) : null;
   data = await api("/state" + ((matchId || playerId) ? "?" + (matchId ? "match=" + encodeURIComponent(matchId) : "player=" + encodeURIComponent(playerId)) : ""));
+  if (location.hash === "#edit-profile") {
+    if (data.user) {
+      history.replaceState(null, "", "#profile/" + data.user.id);
+      render();
+      editProfile();
+      return true;
+    }
+    render();
+    signIn();
+    return false;
+  }
   render();
+  return false;
 }
 function toast(text) {
   $("#toast").textContent = text;
@@ -813,9 +825,11 @@ document.addEventListener("submit", async (e) => {
           code: b.code,
         });
         closeModal();
-        await refresh();
-        if (auth.isNew) editProfile(true);
-        else toast("You’re in. Welcome back.");
+        const openedEditor = await refresh();
+        if (!openedEditor) {
+          if (auth.isNew) editProfile(true);
+          else toast("You’re in. Welcome back.");
+        }
         break;
       case "match":
         for(const el of f.elements) if(!/^(m[0-2][ab]|winner[0-2])$/.test(el.name) && el.willValidate && !el.checkValidity()) {

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env.local server.mjs",
     "start": "node server.mjs",
-    "test": "npm run check && node test/proxy.mjs && node test/auth-domains.mjs && node test/public-state.mjs && node test/weekly-recap.mjs && node test/weekly-delivery.mjs && node test/daily-matchups.mjs && node test/daily-delivery.mjs && node test/series.mjs && node test/email-templates.mjs && node test/email-delivery.mjs && node test/match-share.mjs",
+    "test": "npm run check && node test/profile-edit-link.mjs && node test/proxy.mjs && node test/auth-domains.mjs && node test/public-state.mjs && node test/weekly-recap.mjs && node test/weekly-delivery.mjs && node test/daily-matchups.mjs && node test/daily-delivery.mjs && node test/series.mjs && node test/email-templates.mjs && node test/email-delivery.mjs && node test/match-share.mjs",
     "preview:emails": "node test/email-preview.mjs",
     "check": "node test/syntax.mjs",
     "test:integration": "node --env-file=.env.local test/integration.mjs",

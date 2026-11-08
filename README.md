@@ -32,6 +32,10 @@ Database business tables and functions are unavailable to anonymous and authenti
 
 The board is intentionally public: profiles, photos, matches, notes, comments, reactions, and match correction history can be read without login. Emails, preferences, subscriptions, agent keys, and account activity require login. Only participants can create a signed match receipt link. Anyone holding that link can see names, scores, and date; receipt HTML/PNG excludes notes, comments, emails, photos, and account history. Signed links are unlisted, not confidential, and have no individual revocation. Rotating `OTP_SECRET` invalidates receipt and email-preference links.
 
+## Profile editing link
+
+Use `https://nalaboard.com/#edit-profile` in emails to invite players to update their photo or avatar. Signed-in players go straight to the existing profile editor. Signed-out players enter their email and sign-in code first, then the editor opens automatically. The link edits only the signed-in player’s own profile; opening it does not save changes or send reminder emails.
+
 ## London emails
 
 All calendar boundaries use **Europe/London**, including British Summer Time.
