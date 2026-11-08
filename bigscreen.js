@@ -109,7 +109,13 @@ function updateCountdown() {
   if (label) label.textContent = `Back to board in ${seconds}s`;
   if (!seconds) go("board");
 }
+function updateBackButton() {
+  document.querySelector("#entry-back").hidden =
+    !document.fullscreenElement ||
+    !["me", "opponent", "score", "local", "otp"].includes(scene);
+}
 function render() {
+  updateBackButton();
   if (scene === "pair") {
     root.innerHTML = `<section class="pair enter"><div><h1>Activate display</h1><p class="pair-code">${esc(pair?.code || "")}</p><small id="pair-expiry"></small><p class="pair-address">${esc(location.host)}/activate</p>${button("Activate on this computer", "local", "primary")}</div><div class="pair-qr"><div class="qr"><img src="${esc(pair?.qr)}" alt="Scan to activate this display"></div><p>Scan to activate</p></div></section>${errorNode()}`;
     updateExpiry();
@@ -572,6 +578,11 @@ root.addEventListener("submit", async (e) => {
     submit.disabled = false;
   }
 });
+document.querySelector("#entry-back").addEventListener("click", () => {
+  if (draft?.saving || returnTarget) return;
+  resetIdle();
+  if (history.state?.nbDisplay?.depth) history.go(-1);
+});
 document.querySelector("#fullscreen").addEventListener("click", async () => {
   try {
     if (document.fullscreenElement) await document.exitFullscreen();
@@ -582,6 +593,7 @@ document.querySelector("#fullscreen").addEventListener("click", async () => {
   }
 });
 document.addEventListener("fullscreenchange", () => {
+  updateBackButton();
   const button = document.querySelector("#fullscreen");
   button.textContent = document.fullscreenElement
     ? "Exit fullscreen"

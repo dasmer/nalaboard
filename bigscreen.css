@@ -826,3 +826,19 @@ input {
   font-variant-numeric: tabular-nums;
   margin-top: 12px;
 }
+
+.brand-navigation {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  .brand-navigation {
+    gap: 8px;
+  }
+  .brand-navigation .quiet {
+    padding-inline: 6px;
+    font-size: 15px;
+  }
+}
