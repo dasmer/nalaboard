@@ -332,7 +332,7 @@ input {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 35px;
+  gap: 28px;
   margin-top: 30px;
 }
 .board-footer > .action {
@@ -340,11 +340,18 @@ input {
   min-height: 85px;
   font-size: 28px;
 }
+.record-choice {
+  color: var(--muted);
+  font-size: 18px;
+}
 .record-qr {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 14px;
   font-size: 18px;
+}
+.record-qr > span:last-child {
+  max-width: 200px;
 }
 .record-qr .qr {
   width: 96px;
@@ -721,6 +728,9 @@ input {
     flex-direction: column;
     align-items: stretch;
     gap: 20px;
+  }
+  .record-choice {
+    text-align: center;
   }
   .record-qr {
     justify-content: center;
