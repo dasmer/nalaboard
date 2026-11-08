@@ -16,6 +16,7 @@ const rows=[
   {id:'comment-email',payload:{action:'comment.added',matchId:'game',actor:'a',text:'Nice game!',after}},
   {id:'agent-email',payload:{action:'agent.connected',actor:'b',label:'Codex'}},
 ].map(r=>({...r,recipient:'b',subject:'A new match is on the board',attempts:0}));
+rows.push(...['a','b'].map(recipient=>({id:`display-${recipient}`,recipient,subject:'A new match is on the board',attempts:0,payload:{action:'match.recorded',matchId:'display-game',actor:'a',display:true,after}})));
 db.database.rpc=async()=>({data:rows,error:null});
 let gameLookups=0;const updates=[];
 db.database.from=table=>{
@@ -32,13 +33,18 @@ db.database.from=table=>{
 };
 await sendOtp('user@example.test','012345','fixture-otp');
 await deliverOutbox();
-assert.equal(sent.length,4);
+assert.equal(sent.length,6);
 assert.ok(sent.every(m=>m.to==='inbox@example.test' && m.html && m.text));
 assert.ok(sent[0].html.includes('012345'));
 assert.ok(sent[1].html.includes('Alex') && sent[1].html.includes('Jordan'));
 assert.ok(sent[2].html.includes('Nice game!'));
 assert.ok(sent[3].text.includes('Manage agent connection:'));
-assert.equal(gameLookups,1,'Comments and security notices need no extra game lookup');
-assert.equal(updates.length,3);
+assert.ok(sent[4].text.includes('You won 2–0 against Jordan.'));
+assert.ok(sent[5].text.includes('You lost 0–2 against Alex.'));
+assert.ok(sent.slice(4).every(m=>m.text.includes('Recorded by Alex on the office big screen.')));
+assert.equal(sent[4].subject,'Your match against Jordan is on the board');
+assert.equal(sent[5].subject,'Your match against Alex is on the board');
+assert.equal(gameLookups,3,'Comments and security notices need no extra game lookup');
+assert.equal(updates.length,5);
 assert.ok(updates.every(u=>u.sent_at && u.last_error===null));
 console.log('Email delivery checks passed with mocked database and Resend transport; no emails sent.');

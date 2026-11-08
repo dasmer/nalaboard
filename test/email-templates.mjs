@@ -41,3 +41,25 @@ for(const payload of [{action:'match.recorded',matchId,after:single},{action:'ma
   assert.ok(email.text.includes('1–0 (11–7)'));
   if(!payload.before)assert.ok(email.text.includes('recorded a single-game match:'));
 }
+
+// Display messages use each recipient's perspective while preserving the recorder.
+for (const result of [after, single, {score1:0,score2:1,games:[{type:'deuce',winner:2}]}, {score1:1,score2:0,games:[{type:'unrecorded',winner:1}]}]) {
+  for (const recipientId of ['a','b']) {
+    const email=activityEmail({...base,recipientId,player1Id:'a',player2Id:'b',payload:{action:'match.recorded',matchId,after:result,display:true}});
+    const [mine,theirs]=recipientId==='a'?[result.score1,result.score2]:[result.score2,result.score1];
+    const opponent=recipientId==='a'?base.player2Name:base.player1Name;
+    assert.equal(email.subject,`Your match against ${opponent} is on the board`);
+    assert.ok(email.text.includes(`You ${mine>theirs?'won':'lost'} ${mine}–${theirs} against ${opponent}.`));
+    assert.ok(email.text.includes(`Recorded by ${base.actorName} on the office big screen.`));
+    assert.ok(email.html.includes('Recorded by <strong') && email.html.includes('on the office big screen.'));
+    assert.ok(!email.html.includes('<script>') && email.html.includes('&lt;script&gt;'));
+    assert.ok(email.html.includes(`/#profile/${recipientId}`));
+    assert.ok(!email.text.includes('undefined') && !email.text.includes('NaN'));
+    assert.ok(email.html.includes(result.games.length===1?'SINGLE-GAME MATCH':'BEST OF THREE'));
+    if(result.games[0].type==='unrecorded')assert.ok(email.text.includes('Score not recorded'));
+    if(result.games[0].type==='deuce')assert.ok(email.text.includes('won in deuce'));
+  }
+}
+assert.equal(mixedMail.subject,undefined,'Personal and agent result emails retain their existing subject');
+assert.ok(!mixedMail.text.includes('big screen'));
+console.log('Display emails passed: both perspectives, either winner, single game and best of three, deuce, forgotten scores, recorder attribution and escaping.');
