@@ -2,12 +2,12 @@
 import http from 'node:http';
 import {otpEmail,activityEmail} from '../server/email-templates.mjs';
 const base={origin:'https://nalaboard.com',recipientId:'preview',actorName:'Alex',player1Name:'Alex',player2Name:'Jordan'};
-const after={score1:2,score2:1,matches:[{score1:11,score2:7},{score1:9,score2:11},{type:'deuce',winner:1}]};
+const after={score1:2,score2:1,games:[{score1:11,score2:7},{score1:9,score2:11},{type:'deuce',winner:1}]};
 const previews={
   login:otpEmail({origin:base.origin,code:'012345'}),
-  comment:activityEmail({...base,payload:{action:'comment.added',gameId:'preview',text:'@jordan That deuce finish was unreal.\nRematch tomorrow? 🏓'}}),
-  game:activityEmail({...base,payload:{action:'game.recorded',gameId:'preview',after}}),
-  correction:activityEmail({...base,payload:{action:'game.corrected',gameId:'preview',after,before:{score1:2,score2:0,matches:[{score1:11,score2:7},{score1:11,score2:9}]}}}),
+  comment:activityEmail({...base,payload:{action:'comment.added',matchId:'preview',text:'@jordan That deuce finish was unreal.\nRematch tomorrow? 🏓'}}),
+  game:activityEmail({...base,payload:{action:'match.recorded',matchId:'preview',after}}),
+  correction:activityEmail({...base,payload:{action:'match.corrected',matchId:'preview',after,before:{score1:2,score2:0,games:[{score1:11,score2:7},{score1:11,score2:9}]}}}),
   agent:activityEmail({...base,payload:{action:'agent.connected',label:'My Codex'}}),
 };
 http.createServer((req,res)=>{

@@ -13,17 +13,17 @@ for(let n=0;n<=40;n++)for(let seed=1;seed<=5;seed++) {
  assert.deepEqual(dailyPairs({...s,players:[...roster].reverse()},rng(seed)),pairs,'Reproducible with injected random source regardless of input order');
 }
 const s={day:'2026-10-14',players:players.slice(0,4),history:[],excludedPairs:[]},pairs=dailyPairs(s,rng());
-const blocked={...s,history:[{player1:id(0),player2:id(1),games:1,lastPlayed:'2026-10-13'}],excludedPairs:[[id(3),id(2)]]};
+const blocked={...s,history:[{player1:id(0),player2:id(1),matches:1,lastPlayed:'2026-10-13'}],excludedPairs:[[id(3),id(2)]]};
 for(let seed=1;seed<=50;seed++) {
  const result=dailyPairs(blocked,rng(seed));assert(!result.some(p=>p.join(':')===[id(0),id(1)].join(':')),'Never repeat yesterday’s played opponent');assert(!result.some(p=>p.join(':')===[id(2),id(3)].join(':')),'Never repeat yesterday’s recommendation');
 }
 const two={...s,players:s.players.slice(0,2)};
 assert.deepEqual(dailyPairs({...two,excludedPairs:[[id(0),id(1)]]}),[[id(0),id(1)]],'No fresh choices gives one mutual rematch');
-assert.equal(dailyPairs({...two,history:[{player1:id(0),player2:id(1),games:99,lastPlayed:'2026-10-12'}]}).length,1,'Older games do not block a random matchup');
+assert.equal(dailyPairs({...two,history:[{player1:id(0),player2:id(1),matches:99,lastPlayed:'2026-10-12'}]}).length,1,'Older games do not block a random matchup');
 const sparse={...s,excludedPairs:[[id(0),id(2)],[id(0),id(3)],[id(1),id(2)],[id(1),id(3)],[id(2),id(3)]]};
 assert(dailyPairs(sparse,rng()).flat().includes(id(2)),'A stranded player gets a mutual fallback');
 const variants=new Set(Array.from({length:20},(_,i)=>JSON.stringify(dailyPairs(s,rng(i+1)))));assert(variants.size>1,'Different random draws produce different eligible lineups');
-assert.deepEqual(dailyPairs({...s,history:[{player1:id(0),player2:id(1),games:100,lastPlayed:'2026-10-01'}]},rng()),pairs,'Historical counts no longer weight the random selection');
+assert.deepEqual(dailyPairs({...s,history:[{player1:id(0),player2:id(1),matches:100,lastPlayed:'2026-10-01'}]},rng()),pairs,'Historical counts no longer weight the random selection');
 for(let n=2;n<=10;n++)for(let seed=1;seed<=10;seed++) {
  const roster=Array.from({length:n},(_,i)=>({id:id(i)})),draw=rng(seed),excludedPairs=roster.flatMap((a,i)=>roster.slice(i+1).filter(()=>draw(100)<45).map(b=>[a.id,b.id]));
  const randomSnapshot={day:s.day,players:roster,history:[],excludedPairs},result=dailyPairs(randomSnapshot,rng(seed)),degree=new Map(roster.map(p=>[p.id,0]));
@@ -33,10 +33,10 @@ for(let n=2;n<=10;n++)for(let seed=1;seed<=10;seed++) {
 const token=dailyToken(id(0),'key');assert.equal(dailyTokenPlayer(token,'key'),id(0));assert.equal(dailyTokenPlayer(token,'wrong'),null);assert.equal(dailyTokenPlayer(weeklyToken(id(0),'key'),'key'),null,'Weekly links cannot alter daily preferences');
 const snapshot={...s,pairs,players:s.players.map(p=>({...p,name:'<b>'+p.name}))};
 const email=dailyEmail({snapshot,recipientId:id(0),origin:'https://nalaboard.com',key:'key'});
-assert.equal(email.subject,'🏓 <b>Player & <b>Player are your two today');assert(email.html.includes('&lt;b&gt;'));assert(!email.html.includes('<b>Player'));assert(email.html.includes('daily-emails/'));assert(email.text.includes('A fresh matchup—no games together in four weeks.'));
+assert.equal(email.subject,'🏓 <b>Player & <b>Player are your two today');assert(email.html.includes('&lt;b&gt;'));assert(!email.html.includes('<b>Player'));assert(email.html.includes('daily-emails/'));assert(email.text.includes('A fresh matchup—no matches together in four weeks.'));
 const opponent=pairs.find(p=>p.includes(id(0))).find(p=>p!==id(0));
 for(const [lastPlayed,expected] of [['2026-10-13','Run it back.'],['2026-10-02','Time to catch up—last played 12 days ago.']]) {
- const recent=dailyEmail({snapshot:{...snapshot,history:[{player1:id(0),player2:opponent,games:2,lastPlayed}]},recipientId:id(0),origin:'https://nalaboard.com',key:'key'});
+ const recent=dailyEmail({snapshot:{...snapshot,history:[{player1:id(0),player2:opponent,matches:2,lastPlayed}]},recipientId:id(0),origin:'https://nalaboard.com',key:'key'});
  assert(recent.html.includes(expected));assert(recent.text.includes(expected),'Relative copy uses the frozen lineup date');
 }
 assert.equal(dailyEmail({snapshot,recipientId:id(0),origin:'https://nalaboard.com',key:'key',activeIds:[]}),null);
@@ -50,9 +50,9 @@ assert(namedEmail.html.includes('Wednesday, October 14'));
 for(const noisy of ['Best of three','Suggestions, not assignments','Your opponents got the same','Open the page, then tap']) {assert(!namedEmail.html.includes(noisy));assert(!namedEmail.text.includes(noisy));}
 
 assert(!namedEmail.html.includes('Yesterday at the table'),'Omit empty recap for prior snapshots');
-assert(!dailyEmail({snapshot:{...named,yesterdayGames:[]},recipientId:id(0),origin:'https://nalaboard.com',key:'key'}).html.includes('Yesterday at the table'));
+assert(!dailyEmail({snapshot:{...named,yesterdayMatches:[]},recipientId:id(0),origin:'https://nalaboard.com',key:'key'}).html.includes('Yesterday at the table'));
 const resultPlayer={id:id(5),name:'<script>Other Player',avatar:'<x>',image:'/api/v1/photos/'+id(5)};
-const withResults={...named,yesterdayGames:[{id:'game-a',player1:named.players[0],player2:resultPlayer,score1:2,score2:1},{id:'game-b',player1:resultPlayer,player2:named.players[0],score1:0,score2:2}]};
+const withResults={...named,yesterdayMatches:[{id:'game-a',player1:named.players[0],player2:resultPlayer,score1:2,score2:1},{id:'game-b',player1:resultPlayer,player2:named.players[0],score1:0,score2:2}]};
 const recapEmail=dailyEmail({snapshot:withResults,recipientId:id(0),origin:'https://nalaboard.com',key:'key'});
 assert(recapEmail.html.includes('Yesterday at the table'));assert(recapEmail.html.indexOf('Yesterday at the table')>recapEmail.html.indexOf('View player'));
 assert(recapEmail.html.includes('&lt;script&gt;Other Player'));assert(!recapEmail.html.includes('<script>'));assert(recapEmail.html.includes('/api/v1/photos/'+id(5)));
@@ -64,8 +64,8 @@ for(let n=2;n<=9;n++) {
  const excludedPairs=roster.flatMap((a,i)=>roster.slice(i+1).map(b=>[a.id,b.id])),allRematches=dailyPairs({...s,players:roster,excludedPairs},rng());
  for(const p of roster){const count=allRematches.filter(pair=>pair.includes(p.id)).length;assert(count>=1&&count<=2,'All-blocked even/odd pools remain covered and capped');}
 }
-const single={...named,players:[named.players[0]],pairs:[],yesterdayGames:withResults.yesterdayGames};
-const recapOnly=dailyEmail({snapshot:single,recipientId:id(0),origin:'https://nalaboard.com',key:'key'});assert.equal(recapOnly.subject,'🏓 Yesterday at the table · Nalaboard');assert(!recapOnly.html.includes('View player'));assert(recapOnly.text.includes('Dasmer Singh 2–1'));assert.equal(dailyEmail({snapshot:{...single,yesterdayGames:[]},recipientId:id(0),origin:'https://nalaboard.com',key:'key'}),null);
+const single={...named,players:[named.players[0]],pairs:[],yesterdayMatches:withResults.yesterdayMatches};
+const recapOnly=dailyEmail({snapshot:single,recipientId:id(0),origin:'https://nalaboard.com',key:'key'});assert.equal(recapOnly.subject,'🏓 Yesterday at the table · Nalaboard');assert(!recapOnly.html.includes('View player'));assert(recapOnly.text.includes('Dasmer Singh 2–1'));assert.equal(dailyEmail({snapshot:{...single,yesterdayMatches:[]},recipientId:id(0),origin:'https://nalaboard.com',key:'key'}),null);
 const rerun=dailyEmail({snapshot:{...two,pairs:[[id(0),id(1)]],excludedPairs:[[id(0),id(1)]]},recipientId:id(0),origin:'https://nalaboard.com',key:'key'});assert(rerun.html.includes('Run it back.'));assert(rerun.text.includes('Run it back.'));
 
 const withStranded={...s,players:players.slice(0,5),excludedPairs:players.slice(0,4).map(p=>[p.id,id(4)].sort())};

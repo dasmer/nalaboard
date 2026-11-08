@@ -7,7 +7,7 @@ import {dailyPairs,dailyToken} from '../server/daily-matchups.mjs';
 import {weeklyToken} from '../server/weekly-recap.mjs';
 const link=JSON.parse(readFileSync(new URL('../.insforge/project.json',import.meta.url)));
 assert.equal(config.environment,'test');assert(['nalaboard-test','nalaboard-series-test'].includes(link.project_name));assert.equal(config.deliveryEnabled,false);
-const origin=process.env.TEST_ORIGIN,prefix='daily'+Date.now(),ids=Array.from({length:5},()=>randomUUID()),credential=randomUUID(),gameIds=Array.from({length:5},()=>randomUUID());
+const origin=process.env.TEST_ORIGIN,prefix='daily'+Date.now(),ids=Array.from({length:5},()=>randomUUID()),credential=randomUUID(),matchIds=Array.from({length:5},()=>randomUUID());
 const days=['2026-10-14','2026-11-09','2026-11-10','2026-11-11','2026-11-12','2026-10-13','2026-10-12','2026-11-13','2026-11-16','2026-11-17','2026-11-18'];
 async function cleanup(day){const runs=await query(db.database.from('nb_daily_runs').select('event_id').eq('day',day));for(const r of runs)await query(db.database.from('nb_outbox').delete().eq('event_id',r.event_id));await query(db.database.from('nb_daily_runs').delete().eq('day',day));}
 async function call(token,method='GET',body){const response=await fetch(origin+'/api/v1/daily-preference'+(method==='GET'?'?token='+encodeURIComponent(token):''),{method,headers:{Origin:origin,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});return {status:response.status,data:await response.json()};}
@@ -26,19 +26,19 @@ try {
    {day:'2026-10-13',cutoff:'2026-10-13T07:00:00Z',queued_at:'2026-10-13T07:00:01Z',snapshot:{players:people.map(p=>({id:p.id})),pairs:[[ids[0],ids[4]].sort()]}},
    {day:'2026-10-12',cutoff:'2026-10-12T07:00:00Z',queued_at:'2026-10-12T07:00:01Z',snapshot:{players:people.map(p=>({id:p.id})),pairs:[[ids[1],ids[4]].sort()]}}
  ]));
- await query(db.database.from('nb_games').insert(gameIds.map((id,i)=>({id,player1:ids[0],player2:i===3?ids[2]:ids[1],date:['2026-10-13','2026-09-15','2026-10-14','2026-10-13','2026-10-13'][i],matches:[{score1:11,score2:7},{score1:11,score2:8}],created_at:i===4?'2026-10-14T08:00:00Z':'2026-10-13T04:00:00Z'}))));
- await query(db.database.from('nb_games').update({matches:[{score1:7,score2:11},{score1:8,score2:11}]}).eq('id',gameIds[0]));
+ await query(db.database.from('nb_matches').insert(matchIds.map((id,i)=>({id,player1:ids[0],player2:i===3?ids[2]:ids[1],date:['2026-10-13','2026-09-15','2026-10-14','2026-10-13','2026-10-13'][i],games:[{score1:11,score2:7},{score1:11,score2:8}],created_at:i===4?'2026-10-14T08:00:00Z':'2026-10-13T04:00:00Z'}))));
+ await query(db.database.from('nb_matches').update({games:[{score1:7,score2:11},{score1:8,score2:11}]}).eq('id',matchIds[0]));
  await query(db.database.from('nb_activity').insert([
-   {actor:ids[0],game_id:gameIds[0],action:'game.recorded',description:'Recap fixture original',created_at:'2026-10-13T04:00:00Z',after_data:{score1:2,score2:0}},
-   {actor:ids[0],game_id:gameIds[0],action:'game.corrected',description:'Recap fixture after cutoff',created_at:'2026-10-14T07:30:00Z',after_data:{score1:0,score2:2}}
+   {actor:ids[0],match_id:matchIds[0],action:'match.recorded',description:'Recap fixture original',created_at:'2026-10-13T04:00:00Z',after_data:{score1:2,score2:0}},
+   {actor:ids[0],match_id:matchIds[0],action:'match.corrected',description:'Recap fixture after cutoff',created_at:'2026-10-14T07:30:00Z',after_data:{score1:0,score2:2}}
  ]));
  assert.equal(await rpc('nb_daily_snapshot',{p_now:'2026-10-14T06:59:59Z'}),null,'Not before 8 AM BST');
  assert.equal(await rpc('nb_daily_snapshot',{p_now:'2026-10-17T07:00:00Z'}),null,'No Saturday send');assert.equal(await rpc('nb_daily_snapshot',{p_now:'2026-10-18T07:00:00Z'}),null,'No Sunday send');
  const snapshots=await Promise.all(Array.from({length:3},()=>rpc('nb_daily_snapshot',{p_now:'2026-10-14T07:00:00Z'})));assert.deepEqual(snapshots[0],snapshots[1]);
- const snapshot=snapshots[0];assert(!snapshot.players.some(p=>p.id===ids[2]||p.id===ids[3]),'Opted out / late signup are excluded');assert(snapshot.players.some(p=>p.id===ids[0]));assert.equal(snapshot.history.find(h=>[h.player1,h.player2].includes(ids[0])&&[h.player1,h.player2].includes(ids[1])).games,1,'Four-week window excludes old and same-day games');
- const recap=snapshot.yesterdayGames.filter(g=>gameIds.includes(g.id));
+ const snapshot=snapshots[0];assert(!snapshot.players.some(p=>p.id===ids[2]||p.id===ids[3]),'Opted out / late signup are excluded');assert(snapshot.players.some(p=>p.id===ids[0]));assert.equal(snapshot.history.find(h=>[h.player1,h.player2].includes(ids[0])&&[h.player1,h.player2].includes(ids[1])).matches,1,'Four-week window excludes old and same-day games');
+ const recap=snapshot.yesterdayMatches.filter(g=>matchIds.includes(g.id));
  assert.equal(recap.length,2,'Only yesterday games recorded before cutoff are included');
- assert.equal(recap.find(g=>g.id===gameIds[0]).score1,2,'Use result history at cutoff, not a later correction');
+ assert.equal(recap.find(g=>g.id===matchIds[0]).score1,2,'Use result history at cutoff, not a later correction');
  assert(recap.some(g=>g.player2.id===ids[2]),'Recap includes public results of opted-out players');
  assert(recap.every(g=>g.player1.name&&g.player2.name));assert(!JSON.stringify(recap).includes('@useallowance.com'),'No emails in result snapshot');
  const hasExcluded=(a,b)=>snapshot.excludedPairs.some(pair=>pair.includes(a)&&pair.includes(b));
@@ -49,13 +49,13 @@ try {
  for(const pair of pairs)if(snapshot.excludedPairs.some(blocked=>JSON.stringify(blocked)===JSON.stringify(pair)))assert(pair.some(id=>snapshot.players.filter(p=>p.id!==id).every(other=>hasExcluded(id,other.id))),'Repeats require a player with no fresh options');
  await assert.rejects(()=>rpc('nb_queue_daily_matchups',{p_day:days[0],p_pairs:[[ids[0],ids[0]]]}),'Reject invalid lineup before any delivery queues');
  const candidates=[pairs,dailyPairs(snapshot),dailyPairs(snapshot)];const results=await Promise.all(candidates.map(candidate=>rpc('nb_queue_daily_matchups',{p_day:days[0],p_pairs:candidate})));const winningPairs=candidates[results.findIndex(n=>n>0)];assert.equal(results.filter(n=>n>0).length,1);
- const run=(await query(db.database.from('nb_daily_runs').select('*').eq('day',days[0])))[0];assert.deepEqual(run.snapshot.pairs,winningPairs);assert.deepEqual(run.snapshot.yesterdayGames,snapshot.yesterdayGames,'Results persist unchanged during queueing');assert.equal(Date.parse(run.cutoff),Date.parse('2026-10-14T07:00:00Z'));
+ const run=(await query(db.database.from('nb_daily_runs').select('*').eq('day',days[0])))[0];assert.deepEqual(run.snapshot.pairs,winningPairs);assert.deepEqual(run.snapshot.yesterdayMatches,snapshot.yesterdayMatches,'Results persist unchanged during queueing');assert.equal(Date.parse(run.cutoff),Date.parse('2026-10-14T07:00:00Z'));
  const outbox=await query(db.database.from('nb_outbox').select('recipient').eq('event_id',run.event_id));assert.equal(outbox.length,new Set(winningPairs.flat()).size,'Queue only players with an eligible opponent');assert(!outbox.some(o=>o.recipient===ids[2]||o.recipient===ids[3]));
  assert.equal(await rpc('nb_daily_snapshot',{p_now:'2026-10-14T07:30:00Z'}),null,'Restart cannot create a second lineup');
- assert.equal(await rpc('nb_daily_snapshot',{p_now:'2026-11-09T07:59:59Z'}),null,'GMT before 8 AM');const winter=await rpc('nb_daily_snapshot',{p_now:'2026-11-09T08:00:00Z'});assert(!winter.yesterdayGames.some(g=>gameIds.includes(g.id)),'Empty yesterday has no fixture results');assert.equal(Date.parse(winter.cutoff),Date.parse('2026-11-09T08:00:00Z'));
+ assert.equal(await rpc('nb_daily_snapshot',{p_now:'2026-11-09T07:59:59Z'}),null,'GMT before 8 AM');const winter=await rpc('nb_daily_snapshot',{p_now:'2026-11-09T08:00:00Z'});assert(!winter.yesterdayMatches.some(g=>matchIds.includes(g.id)),'Empty yesterday has no fixture results');assert.equal(Date.parse(winter.cutoff),Date.parse('2026-11-09T08:00:00Z'));
  assert.equal(await rpc('nb_daily_snapshot',{p_now:'2026-11-10T10:00:00Z'}),null,'Skip stale catchup after 10 AM');
  for(const [index,n] of [[2,0],[3,1],[4,2]]) {
-   const day=days[index],small={day,players:people.slice(0,n).map(p=>({id:p.id,name:p.name})),history:[],yesterdayGames:n===1?snapshot.yesterdayGames:[]};await query(db.database.from('nb_daily_runs').insert([{day,cutoff:day+'T08:00:00Z',snapshot:small}]));
+   const day=days[index],small={day,players:people.slice(0,n).map(p=>({id:p.id,name:p.name})),history:[],yesterdayMatches:n===1?snapshot.yesterdayMatches:[]};await query(db.database.from('nb_daily_runs').insert([{day,cutoff:day+'T08:00:00Z',snapshot:small}]));
    assert.equal(await rpc('nb_queue_daily_matchups',{p_day:day,p_pairs:dailyPairs(small)}),n===2?2:n===1?1:0,'Small roster sends recap only when there is no opponent');
  }
  const sparse={day:'2026-11-13',players:people.slice(0,3).map(p=>({id:p.id,name:p.name})),history:[],excludedPairs:[[ids[0],ids[2]].sort(),[ids[1],ids[2]].sort()]};
@@ -71,5 +71,5 @@ try {
  console.log('Daily real-backend checks passed: signed/read-only preferences, default on, public privacy, BST/GMT, weekdays, two-hour catchup, cutoff roster/history, random reciprocal pairs, played/recommended exclusions, mutual rematch and recap-only fallbacks, frozen concurrent winners, pending snapshot upgrades and zero/one/two players. No emails sent.');
 } finally {
  for(const day of days)await cleanup(day);
- await query(db.database.from('nb_activity').delete().in('actor',ids));await query(db.database.from('nb_games').delete().in('id',gameIds));await query(db.database.from('nb_sessions').delete().in('player_id',ids));await query(db.database.from('nb_players').delete().in('id',ids));
+ await query(db.database.from('nb_activity').delete().in('actor',ids));await query(db.database.from('nb_matches').delete().in('id',matchIds));await query(db.database.from('nb_sessions').delete().in('player_id',ids));await query(db.database.from('nb_players').delete().in('id',ids));
 }

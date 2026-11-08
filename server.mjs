@@ -1,7 +1,7 @@
 import {weeklyTokenPlayer} from './server/weekly-recap.mjs';
 import {dailyTokenPlayer} from './server/daily-matchups.mjs';
 import http from 'node:http';
-import {seriesScore} from './series.mjs';
+import {matchScore} from './series.mjs';
 import {readFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
 import sharp from 'sharp';
@@ -9,7 +9,7 @@ import {config,db,query,readQuery,rpc} from './server/config.mjs';
 import {identity,error,requestCode,verifyCode,cookie,hash,secret} from './server/auth.mjs';
 import {state} from './server/state.mjs';
 import {deliverOutbox,queueWeeklyRecap,queueDailyMatchups} from './server/email.mjs';
-import {gameShareURL,serveGameShare} from './game-share.mjs';
+import {matchShareURL,serveMatchShare} from './match-share.mjs';
 import {checkProxy,clientIp} from './server/proxy.mjs';
 const root=resolve('.');
 const allowed=new Set(['/index.html','/client.js','/client.css','/favicon.svg','/brand-logo.png','/brand-icon.png','/apple-touch-icon.png','/og-card.png','/agent.md','/series.mjs']);
@@ -21,12 +21,12 @@ async function jsonBody(req) {
   try {return raw?JSON.parse(raw):{};} catch {throw error('Invalid JSON.');}
 }
 const uuid=(value)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-async function loadSharedGame(id) {
+async function loadSharedMatch(id) {
   if(!uuid(id))return null;
-  const game=(await readQuery(()=>db.database.from('nb_games').select('id,player1,player2,score1,score2,matches,date,revision').eq('id',id).limit(1)))[0];
-  if(!game)return null;
-  const players=await readQuery(()=>db.database.from('nb_players').select('id,name').in('id',[game.player1,game.player2]).limit(2));
-  return {game,players};
+  const matchResult=(await readQuery(()=>db.database.from('nb_matches').select('id,player1,player2,score1,score2,games,date,revision').eq('id',id).limit(1)))[0];
+  if(!matchResult)return null;
+  const players=await readQuery(()=>db.database.from('nb_players').select('id,name').in('id',[matchResult.player1,matchResult.player2]).limit(2));
+  return {matchResult,players};
 }
 function checkOrigin(req) {
   if (!['GET','HEAD','OPTIONS'].includes(req.method)) {
@@ -45,21 +45,21 @@ async function api(req,res,url) {
   if(req.method==='POST' && path==='/auth/verify') return verifyCode(body,res);
   const who=await identity(req);
   if(req.method==='GET' && path==='/state') {
-    const game=url.searchParams.get('game');
-    if(game && !uuid(game)) throw error('Invalid game.');
+    const matchId=url.searchParams.get('match');
+    if(matchId && !uuid(matchId)) throw error('Invalid match.');
     const player=url.searchParams.get('player');
     if(player && !uuid(player)) throw error('Invalid player.');
     const cursors={};
-    for(const kind of ['games','activity']) {
+    for(const kind of ['matches','activity']) {
       const input=url.searchParams.get(kind+'Before');
       if(input) {
         let cursor;try{cursor=JSON.parse(Buffer.from(input,'base64url'));}catch{throw error('Invalid page cursor.');}
-        if(!Array.isArray(cursor) || cursor.length!==(kind==='games'?3:2) || !uuid(cursor[1]) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(cursor[0])) throw error('Invalid page cursor.');
-        if(kind==='games' && !/^\d{4}-\d{2}-\d{2}$/.test(cursor[2])) throw error('Invalid page cursor.');
+        if(!Array.isArray(cursor) || cursor.length!==(kind==='matches'?3:2) || !uuid(cursor[1]) || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(cursor[0])) throw error('Invalid page cursor.');
+        if(kind==='matches' && !/^\d{4}-\d{2}-\d{2}$/.test(cursor[2])) throw error('Invalid page cursor.');
         cursors[kind]=cursor;
       }
     }
-    return state(who,game,cursors,player);
+    return state(who,matchId,cursors,player);
   }
   if(['/weekly-preference','/daily-preference'].includes(path) && ['GET','POST'].includes(req.method)) {
     const daily=path==='/daily-preference',field=daily?'daily_matchups':'weekly_recap';
@@ -84,13 +84,13 @@ async function api(req,res,url) {
     res.setHeader('Content-Type','image/webp');res.end(Buffer.from(await blob.arrayBuffer()));return null;
   }
   if(!who) throw error('Sign in to continue.',401);
-  const share=/^\/games\/([^/]+)\/share$/.exec(path);
+  const share=/^\/matches\/([^/]+)\/share$/.exec(path);
   if(share && req.method==='GET') {
-    if(!uuid(share[1]))throw error('Game not found.',404);
-    const found=await loadSharedGame(share[1]);
-    if(!found)throw error('Game not found.',404);
-    if(![found.game.player1,found.game.player2].includes(who.user.id))throw error('Only participants can share this game.',403);
-    return {url:gameShareURL({origin:config.origin,id:share[1],key:config.otpSecret})};
+    if(!uuid(share[1]))throw error('Match not found.',404);
+    const found=await loadSharedMatch(share[1]);
+    if(!found)throw error('Match not found.',404);
+    if(![found.matchResult.player1,found.matchResult.player2].includes(who.user.id))throw error('Only participants can share this match.',403);
+    return {url:matchShareURL({origin:config.origin,id:share[1],key:config.otpSecret})};
   }
   if(req.method==='POST' && path==='/auth/logout') {
     await rpc('nb_sign_out',{p_token:who.tokenHash});
@@ -127,14 +127,14 @@ async function api(req,res,url) {
     if(!uuid(key[1])) throw error('Invalid connection.');
     return rpc('nb_player_action',{p_token:who.tokenHash,p_action:'agent.disconnected',p_body:{id:key[1]}});
   }
-  const match=/^\/games(?:\/([^/]+)(?:\/(comments|react|subscription))?)?$/.exec(path);
+  const match=/^\/matches(?:\/([^/]+)(?:\/(comments|react|subscription))?)?$/.exec(path);
   if(match) {
-    const [,id,action]=match;if(id && !uuid(id)) throw error('Invalid game.');
-    const operation=!id && req.method==='POST'?'game.recorded':id && !action && req.method==='PATCH'?'game.corrected':
+    const [,id,action]=match;if(id && !uuid(id)) throw error('Invalid match.');
+    const operation=!id && req.method==='POST'?'match.recorded':id && !action && req.method==='PATCH'?'match.corrected':
       action==='comments' && req.method==='POST'?'comment.added':action==='comments' && req.method==='DELETE'?'comment.removed':
       action==='react' && req.method==='POST'?'reaction.updated':action==='subscription' && req.method==='PATCH'?'subscription.updated':null;
     if(!operation) throw error('Not found.',404);
-    if(operation==='game.recorded' || operation==='game.corrected') Object.assign(body,seriesScore(body.matches));
+    if(operation==='match.recorded' || operation==='match.corrected') Object.assign(body,matchScore(body.games));
     if(operation==='comment.added') {
       if(!Array.isArray(body.mentions || []) || (body.mentions || []).length>50 || (body.mentions || []).some(id=>!uuid(id))) throw error('Choose valid mentioned players.');
       body.text=String(body.text || '').trim();if(!body.text || body.text.length>500) throw error('Write a comment under 500 characters.');
@@ -143,7 +143,7 @@ async function api(req,res,url) {
       if((body.mentions || []).some(id=>!mentions.some(p=>p.id===id))) throw error('Mention IDs must match handles in your comment.');
       body.mentions=mentions.map(p=>p.id);
     }
-    return rpc('nb_mutate',{p_token:who.tokenHash,p_action:operation,p_game:id || null,p_body:body,
+    return rpc('nb_mutate',{p_token:who.tokenHash,p_action:operation,p_match:id || null,p_body:body,
       p_key:req.headers['idempotency-key'] || null,p_fingerprint:hash(JSON.stringify({operation,id,body}))});
   }
   throw error('Not found.',404);
@@ -157,7 +157,7 @@ http.createServer(async(req,res)=>{
   try {
     checkProxy(req,config.originSecret);
     const url=new URL(req.url,'http://localhost');
-    if(await serveGameShare(req,res,{origin:config.origin,key:config.otpSecret,load:loadSharedGame}))return;
+    if(await serveMatchShare(req,res,{origin:config.origin,key:config.otpSecret,load:loadSharedMatch}))return;
     if(url.pathname.startsWith('/api/')) {
       res.setHeader('Content-Type','application/json; charset=utf-8');
       const result=await api(req,res,url);if(!res.writableEnded) res.end(JSON.stringify(result));return;

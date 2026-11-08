@@ -23,7 +23,7 @@ function session({signedIn=false,isNew=false,hash='#edit-profile'}={}) {
       requests.push({path,options});
       if(path==='/api/v1/auth/verify') signedIn=true;
       return {ok:true,json:async()=>path.startsWith('/api/v1/state')
-        ? {user:signedIn?user:null,players:[user],games:[],activity:[],keys:[]}
+        ? {user:signedIn?user:null,players:[user],matches:[],activity:[],keys:[]}
         : path==='/api/v1/auth/verify'?{isNew}:path==='/api/v1/auth/request'?{email:user.email}:{}};
     },
   });

@@ -1,4 +1,4 @@
-import {seriesScore,matchLabel,matchWinner} from "./series.mjs";
+import {matchScore,matchFormat,gameLabel,gameWinner} from "./series.mjs";
 const apiBase = "/api/v1";
 const today = new Intl.DateTimeFormat("en-CA", {timeZone:"Europe/London",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 const $ = (s) => document.querySelector(s),
@@ -38,7 +38,7 @@ const paths = {
 };
 const icon = (n) =>
   `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[n] || paths.ball}"/></svg>`;
-let data = { players: [], games: [], activity: [], keys: [], user: null },
+let data = { players: [], matches: [], activity: [], keys: [], user: null },
   feedFilter = "all",
   scope = "week",
   activityFilter = "all",
@@ -86,7 +86,7 @@ async function api(path, method = "GET", body, requestKey = crypto.randomUUID())
 async function refresh() {
   const matchId = location.hash.startsWith("#match/") ? location.hash.slice(7) : null;
   const playerId = location.hash.startsWith("#profile/") ? location.hash.slice(9) : null;
-  data = await api("/state" + ((matchId || playerId) ? "?" + (matchId ? "game=" + encodeURIComponent(matchId) : "player=" + encodeURIComponent(playerId)) : ""));
+  data = await api("/state" + ((matchId || playerId) ? "?" + (matchId ? "match=" + encodeURIComponent(matchId) : "player=" + encodeURIComponent(playerId)) : ""));
   if (location.hash === "#edit-profile") {
     if (data.user) {
       history.replaceState(null, "", "#profile/" + data.user.id);
@@ -110,9 +110,9 @@ function toast(text) {
     3000,
   );
 }
-function stats(id, games = data.games) {
-  if (games === data.games && data.standings) return data.standings.all.find(p => p.id === id) || {played:0,wins:0,losses:0,rate:0};
-  const mine = games.filter((g) => [g.player1, g.player2].includes(id)),
+function stats(id, matchResults = data.matches) {
+  if (matchResults === data.matches && data.standings) return data.standings.all.find(p => p.id === id) || {played:0,wins:0,losses:0,rate:0};
+  const mine = matchResults.filter((g) => [g.player1, g.player2].includes(id)),
     wins = mine.filter(
       (g) => (g.score1 > g.score2 ? g.player1 : g.player2) === id,
     ).length;
@@ -124,15 +124,15 @@ function stats(id, games = data.games) {
   };
 }
 function scoped() {
-  return data.games.filter(
+  return data.matches.filter(
     (g) =>
       scope === "all" ||
       (scope === "month" ? g.date >= (data.monthStart || "2026-10-01") : g.date >= (data.weekStart || "2026-10-04")),
   );
 }
-function board(games = null, period = scope) {
+function board(matchResults = null, period = scope) {
   return data.players
-    .map((p) => ({ ...p, ...(!games && data.standings ? data.standings[period].find(row=>row.id===p.id) || {played:0,wins:0,losses:0,rate:0} : stats(p.id, games || scoped())) }))
+    .map((p) => ({ ...p, ...(!matchResults && data.standings ? data.standings[period].find(row=>row.id===p.id) || {played:0,wins:0,losses:0,rate:0} : stats(p.id, matchResults || scoped())) }))
     .filter((p) => p.played)
     .sort(
       (a, b) =>
@@ -142,7 +142,7 @@ function board(games = null, period = scope) {
     ).map((p,i,rows)=>({...p,rank:1+rows.filter(q=>q.wins>p.wins || (q.wins===p.wins && q.losses<p.losses)).length}));
 }
 function form(id) {
-  return data.games
+  return data.matches
     .filter((g) => [g.player1, g.player2].includes(id))
     .slice(0, 5)
     .reverse()
@@ -167,31 +167,39 @@ function rail() {
   return `<aside class="rail"><section class="panel"><div class="section-title"><h3>This week’s heat</h3><a href="#leaderboard">View all ${icon("arrow")}</a></div>${rows.map((p, i) => `<a class="mini-row" href="#profile/${p.id}"><span class="position">${p.rank}</span>${avatar(p)}<div><strong>${esc(first(p))}</strong><small>@${esc(p.username)}</small></div><div class="points">${p.wins}<small>WINS</small></div></a>`).join("")}<p class="tooltip-note">New week. Same bragging rights.</p></section><section class="panel quote-panel"><div class="eyebrow">HOUSE RULE NO. 01</div><h3>Talk is cheap.<br>Bring your paddle.</h3><p>Good games. Questionable serves.<br>Very real office rivalries.</p><div class="signature">EST. 2026 · CANARY WHARF</div><span class="line-art">🏓</span></section>${me ? `<section class="panel"><div class="section-title"><h3>Your corner</h3><a href="#profile/${me.id}">Player card</a></div><div class="week-strip">${form(me.id)}</div><div class="your-stat"><div><span class="display">${s.wins}<span class="muted">–${s.losses}</span></span><small>ALL-TIME RECORD</small></div><span class="rating">${s.rate}% win rate</span></div></section>` : ""}<small style="text-align:center;font-size:10px">A little competition. A lot of character.</small></aside>`;
 }
 function receipt(g,context=g) {
-  return `${g.score1}–${g.score2} (${g.matches.map(m=>esc(matchLabel(m,[first(player(context.player1)),first(player(context.player2))]))).join(", ")})`;
+  return `${g.score1}–${g.score2} (${g.games.map(m=>esc(gameLabel(m,[first(player(context.player1)),first(player(context.player2))]))).join(", ")})`;
 }
-function matchScores(g) {
-  return `<div class="match-scores" aria-label="Individual match scores">${g.matches.map((m,i)=>`<span><small>MATCH ${i+1}</small><strong>${esc(matchLabel(m,[first(player(g.player1)),first(player(g.player2))]))}</strong></span>`).join("")}<small>BEST OF THREE</small></div>`;
+function gameScores(g) {
+  return `<div class="game-scores" aria-label="Individual game scores">${g.games.map((m,i)=>`<span><small>GAME ${i+1}</small><strong>${esc(gameLabel(m,[first(player(g.player1)),first(player(g.player2))]))}</strong></span>`).join("")}<small>${matchFormat(g.games).toUpperCase()}</small></div>`;
 }
-function matchInput(i,m,names) {
+function gameInput(i,m,names) {
   const mode=m?.type || 'exact';
-  return `<fieldset class="series-match" data-match="${i}" data-mode="${mode}"><legend>Match ${i+1}${i===2?' · the decider':''}</legend>${mode==='exact'?`<div class="score-inputs"><div><label for="m${i}a">${esc(names[0])}</label><input id="m${i}a" name="m${i}a" type="number" inputmode="numeric" min="0" max="11" step="1" value="${m?.score1??''}"></div><span>:</span><div><label for="m${i}b">${esc(names[1])}</label><input id="m${i}b" name="m${i}b" type="number" inputmode="numeric" min="0" max="11" step="1" value="${m?.score2??''}"></div></div><div class="score-options"><button type="button" data-action="match-mode" data-mode="deuce">⇄ Deuce finish</button><button type="button" data-action="match-mode" data-mode="unrecorded">ⓘ Forgot the score?</button></div><div class="match-error" role="alert" hidden><span>Reached deuce? Choose who won—no final score needed.</span><button type="button" class="quiet-link" data-action="match-mode" data-mode="deuce">Use deuce finish →</button></div>`:`<span class="result-tag ${mode==='deuce'?'deuce':''}">${mode==='deuce'?'Deuce finish':'Score not recorded'}</span><p class="field-hint">${mode==='deuce'?'Deuce, advantage, game. No final point total needed.':'That’s fine. Just tell us who took the match.'}</p><label>Who won?</label><div class="match-winners">${names.map((name,w)=>`<label><input type="radio" aria-label="${esc(name)}" name="winner${i}" value="${w+1}" ${m?.winner===w+1?'checked':''}><span>${esc(name)}</span></label>`).join('')}</div><button type="button" class="quiet-link" data-action="match-mode" data-mode="exact">↩ Enter exact score instead</button>`}</fieldset>`;
+  return `<fieldset class="series-game" data-game-index="${i}" data-mode="${mode}"><legend>Game ${i+1}${i===2?' · the decider':''}</legend>${mode==='exact'?`<div class="score-inputs"><div><label for="m${i}a">${esc(names[0])}</label><input id="m${i}a" name="m${i}a" type="number" inputmode="numeric" min="0" max="11" step="1" value="${m?.score1??''}"></div><span>:</span><div><label for="m${i}b">${esc(names[1])}</label><input id="m${i}b" name="m${i}b" type="number" inputmode="numeric" min="0" max="11" step="1" value="${m?.score2??''}"></div></div><div class="score-options"><button type="button" data-action="game-mode" data-mode="deuce">⇄ Deuce finish</button><button type="button" data-action="game-mode" data-mode="unrecorded">ⓘ Forgot the score?</button></div><div class="game-error" role="alert" hidden><span>Reached deuce? Choose who won—no final score needed.</span><button type="button" class="quiet-link" data-action="game-mode" data-mode="deuce">Use deuce finish →</button></div>`:`<span class="result-tag ${mode==='deuce'?'deuce':''}">${mode==='deuce'?'Deuce finish':'Score not recorded'}</span><p class="field-hint">${mode==='deuce'?'Deuce, advantage, game. No final point total needed.':'That’s fine. Just tell us who took the game.'}</p><label>Who won?</label><div class="game-winners">${names.map((name,w)=>`<label><input type="radio" aria-label="${esc(name)}" name="winner${i}" value="${w+1}" ${m?.winner===w+1?'checked':''}><span>${esc(name)}</span></label>`).join('')}</div><button type="button" class="quiet-link" data-action="game-mode" data-mode="exact">↩ Enter exact score instead</button>`}</fieldset>`;
 }
-function matchInputs(matches,me,opponent) {
-  return [0,1,2].map(i=>matchInput(i,matches[i],[me,opponent])).join('');
+function gameInputs(games,me,opponent) {
+  return [0,1,2].map(i=>(i===1?'<div class="single-game-choice"><button type="button" class="quiet-link" data-action="single-game" hidden>Only played one game?</button></div>':'')+gameInput(i,games[i],[me,opponent])).join('');
 }
-function readMatch(row) {
+function readGame(row) {
   if(row.dataset.mode!=='exact')return {type:row.dataset.mode,winner:Number(row.querySelector('input:checked')?.value)};
   const inputs=[...row.querySelectorAll('input[type="number"]')];
   return {score1:inputs[0].value===''?NaN:Number(inputs[0].value),score2:inputs[1].value===''?NaN:Number(inputs[1].value)};
 }
 function updateDecider(form) {
-  const firstTwo=[0,1].map(i=>readMatch(form.querySelector(`[data-match="${i}"]`)));
-  const valid=m=>{try{return seriesScore([m,m]),true;}catch{return false;}};
-  const split=firstTwo.every(valid)&&matchWinner(firstTwo[0])!==matchWinner(firstTwo[1]);
-  const third=form.querySelector('[data-match="2"]');third.hidden=!split;
-  third.querySelectorAll('input').forEach(input=>{input.disabled=!split;});
-  form.querySelectorAll('fieldset[data-mode="exact"]').forEach(row=>{const m=readMatch(row),hint=row.querySelector('.match-error');hint.hidden=!(m.score1>11||m.score2>11||m.score1===10&&m.score2===10);});
-  form.querySelector('.series-status').textContent=split?'One match each. Match 3 decides the game.':firstTwo.every(valid)?'A sweep. No third match needed.':'First to two match wins takes the game.';
+  const rows=[0,1,2].map(i=>form.querySelector(`[data-game-index="${i}"]`)), single=form.dataset.single==='true';
+  const firstTwo=rows.slice(0,2).map(readGame);
+  const valid=m=>{try{return matchScore([m]),true;}catch{return false;}};
+  const split=firstTwo.every(valid)&&gameWinner(firstTwo[0])!==gameWinner(firstTwo[1]);
+  rows.forEach((row,i)=>{
+    row.hidden=i===1?single:i===2?single||!split:false;
+    row.querySelectorAll('input').forEach(input=>{input.disabled=row.hidden;});
+    const hint=row.querySelector('.game-error');
+    if(hint){const m=readGame(row);hint.hidden=!(m.score1>11||m.score2>11||m.score1===10&&m.score2===10);}
+  });
+  if(!form.dataset.matchId)form.closest('.record-dialog').querySelector('[data-record-description]').textContent=single?'Single-game match. Winner takes it.':'Best of three. First to two game wins.';
+  const secondStarted=rows[1].dataset.mode!=='exact'||[...rows[1].querySelectorAll('input')].some(input=>input.value!=='');
+  form.querySelector('[data-action="single-game"]').hidden=single||!valid(firstTwo[0])||secondStarted;
+  form.querySelector('.single-game-summary').hidden=!single;
+  form.querySelector('.series-status').textContent=single?'Single-game match. Winner takes it.':split?'One game each. Game 3 decides the match.':firstTwo.every(valid)?'A sweep. No third game needed.':'First to win two games takes the match.';
 }
 
 function scoreCard(g) {
@@ -201,40 +209,40 @@ function scoreCard(g) {
   return `<a class="score-card" href="#match/${g.id}" aria-label="${esc(p1.name)} versus ${esc(p2.name)}, ${g.score1} to ${g.score2}"><div class="score-player">${avatar(p1)}<div><strong>${esc(first(p1))}</strong><small class="${w1 ? "winner" : ""}">${w1 ? "WINNER" : "GOOD GAME"}</small></div></div><div class="score-numbers"><span class="${w1 ? "" : "loser"}">${g.score1}</span><i>:</i><span class="${w1 ? "loser" : ""}">${g.score2}</span></div><div class="score-player right"><div><strong>${esc(first(p2))}</strong><small class="${w1 ? "" : "winner"}">${w1 ? "GOOD GAME" : "WINNER"}</small></div>${avatar(p2)}</div></a>`;
 }
 function commentList(g) {
-  return `<div class="comments">${g.comments.map((c) => `<div class="comment">${avatar(player(c.actor), "tiny")}<div class="bubble"><strong>${esc(first(player(c.actor)))}</strong><small>${timeLabel(c.createdAt)}${c.agent ? " · via " + esc(c.agent) : ""}</small>${c.actor === data.user?.id ? `<button class="comment-delete" data-action="delete-comment" data-game="${g.id}" data-id="${c.id}">Remove</button>` : ""}<p>${esc(c.text)}</p></div></div>`).join("")}${data.user ? `<form class="comment-form" data-form="comment" data-game="${g.id}">${avatar(data.user, "tiny")}<input aria-label="Comment on match" name="text" placeholder="A little friendly trash talk…" maxlength="500" required><button class="btn small" type="submit">Post</button><div class="mention-picker" aria-label="Mention a player" hidden></div></form>` : `<button class="quiet-link" data-action="signin">Sign in to join the conversation</button>`}</div>`;
+  return `<div class="comments">${g.comments.map((c) => `<div class="comment">${avatar(player(c.actor), "tiny")}<div class="bubble"><strong>${esc(first(player(c.actor)))}</strong><small>${timeLabel(c.createdAt)}${c.agent ? " · via " + esc(c.agent) : ""}</small>${c.actor === data.user?.id ? `<button class="comment-delete" data-action="delete-comment" data-match-id="${g.id}" data-id="${c.id}">Remove</button>` : ""}<p>${esc(c.text)}</p></div></div>`).join("")}${data.user ? `<form class="comment-form" data-form="comment" data-match-id="${g.id}">${avatar(data.user, "tiny")}<input aria-label="Comment on match" name="text" placeholder="A little friendly trash talk…" maxlength="500" required><button class="btn small" type="submit">Post</button><div class="mention-picker" aria-label="Mention a player" hidden></div></form>` : `<button class="quiet-link" data-action="signin">Sign in to join the conversation</button>`}</div>`;
 }
 function post(g, { detail = false } = {}) {
   const author = player(g.actor),
     winner = player(g.score1 > g.score2 ? g.player1 : g.player2),
     loser = player(g.score1 > g.score2 ? g.player2 : g.player1);
-  return `<article class="post" id="post-${g.id}"><div class="post-head"><a href="#profile/${author.id}">${avatar(author)}</a><div class="meta"><a href="#profile/${author.id}"><strong>${esc(author.name)}</strong></a><p>@${esc(author.username)} · ${dateLabel(g.date)}${g.revision > 1 ? " · Edited" : ""}${g.history.find((e) => e.agent) ? " · via agent" : ""}</p></div><span class="tag ${g.matches.some(m=>m.type==='deuce') ? "hot" : ""}">${g.matches.some(m=>m.type==='deuce') ? "DEUCE DRAMA" : "GAME RECORDED"}</span></div><p class="post-copy"><strong>${esc(first(winner))}</strong> took the W against <strong>${esc(first(loser))}</strong>.${g.notes ? "<br>" + esc(g.notes) : ""}</p>${scoreCard(g)}${matchScores(g)}<div class="post-actions"><button data-action="reaction-picker" data-game="${g.id}" aria-label="Add reaction">${icon("smile")} React</button><div class="reaction-chips">${Object.entries(
+  return `<article class="post" id="post-${g.id}"><div class="post-head"><a href="#profile/${author.id}">${avatar(author)}</a><div class="meta"><a href="#profile/${author.id}"><strong>${esc(author.name)}</strong></a><p>@${esc(author.username)} · ${dateLabel(g.date)}${g.revision > 1 ? " · Edited" : ""}${g.history.find((e) => e.agent) ? " · via agent" : ""}</p></div><span class="tag ${g.games.some(m=>m.type==='deuce') ? "hot" : ""}">${g.games.some(m=>m.type==='deuce') ? "DEUCE DRAMA" : "MATCH RECORDED"}</span></div><p class="post-copy"><strong>${esc(first(winner))}</strong> took the W against <strong>${esc(first(loser))}</strong>.${g.notes ? "<br>" + esc(g.notes) : ""}</p>${scoreCard(g)}${gameScores(g)}<div class="post-actions"><button data-action="reaction-picker" data-match-id="${g.id}" aria-label="Add reaction">${icon("smile")} React</button><div class="reaction-chips">${Object.entries(
     g.reactions,
   )
     .filter(([, v]) => v.length)
     .map(
       ([emoji, ids]) =>
-        `<button class="reaction-chip ${ids.includes(data.user?.id) ? "active" : ""}" data-action="react" data-game="${g.id}" data-emoji="${emoji}" aria-label="React ${emoji}" aria-pressed="${ids.includes(data.user?.id)}">${emoji} ${ids.length}</button>`,
+        `<button class="reaction-chip ${ids.includes(data.user?.id) ? "active" : ""}" data-action="react" data-match-id="${g.id}" data-emoji="${emoji}" aria-label="React ${emoji}" aria-pressed="${ids.includes(data.user?.id)}">${emoji} ${ids.length}</button>`,
     )
     .join(
       "",
-    )}</div><button data-action="comments" data-game="${g.id}" aria-label="Show comments">${icon("comment")} ${g.comments.length || "Comment"}</button>${[g.player1,g.player2].includes(data.user?.id) ? `<button data-action="share-game" data-game="${g.id}">${icon("share")} Share</button>` : ""}${!detail ? `<a class="details muted" href="#match/${g.id}">Game details ${icon("arrow")}</a>` : ""}${data.user ? `<button class="muted" data-action="subscription" data-game="${g.id}" data-muted="${g.muted}">${g.muted ? "Unmute emails" : "Mute emails"}</button>` : ""}</div>${reactionOpen === g.id ? `<div class="reaction-picker">${["🔥", "🏓", "😂", "👏", "😤"].map((emoji) => `<button data-action="react" data-game="${g.id}" data-emoji="${emoji}" aria-label="React ${emoji}">${emoji}</button>`).join("")}</div>` : ""}${detail || commentsOpen.has(g.id) ? commentList(g) : ""}</article>`;
+    )}</div><button data-action="comments" data-match-id="${g.id}" aria-label="Show comments">${icon("comment")} ${g.comments.length || "Comment"}</button>${[g.player1,g.player2].includes(data.user?.id) ? `<button data-action="share-match" data-match-id="${g.id}">${icon("share")} Share</button>` : ""}${!detail ? `<a class="details muted" href="#match/${g.id}">Match details ${icon("arrow")}</a>` : ""}${data.user ? `<button class="muted" data-action="subscription" data-match-id="${g.id}" data-muted="${g.muted}">${g.muted ? "Unmute emails" : "Mute emails"}</button>` : ""}</div>${reactionOpen === g.id ? `<div class="reaction-picker">${["🔥", "🏓", "😂", "👏", "😤"].map((emoji) => `<button data-action="react" data-match-id="${g.id}" data-emoji="${emoji}" aria-label="React ${emoji}">${emoji}</button>`).join("")}</div>` : ""}${detail || commentsOpen.has(g.id) ? commentList(g) : ""}</article>`;
 }
 function clubhouseHero() {
-  return `<section class="clubhouse-hero"><div class="hero-copy"><div class="hero-location"><span class="dot"></span> CANARY WHARF · LONDON</div><h2>Good colleagues.<br><span>Great rivals.</span></h2><p>${data.user ? `Hey ${esc(first(data.user))}. Your next bragging right is one game away.` : 'A little friendly competition. A lot of “one more game”. Welcome to Nala’s table.'}</p><button class="btn primary" data-action="record">${icon('plus')} ${data.user ? 'Record a game' : 'Get in the game'} ${icon('arrow')}</button><div class="hero-footnote">${data.players.length ? `${data.players.length} players · ${data.standings?.all?.reduce((n,p)=>n+p.wins,0) || 0} games` : 'New table. Fresh rivalries. First serve is yours.'}</div></div><div class="table-art" aria-hidden="true"><span class="rally-word">LET’S<br>RALLY.</span><svg viewBox="0 0 360 300" fill="none"><ellipse cx="185" cy="260" rx="145" ry="20" fill="#00658a" opacity=".12"/><path d="M82 195v48m208-69v61M166 220v50" stroke="#1c2024" stroke-width="10" stroke-linecap="round"/><path d="m28 159 173-65 139 83-175 71z" fill="#00658a"/><path d="m28 149 173-65 139 83-175 71z" fill="#00a2dc" stroke="white" stroke-width="3" stroke-linejoin="round"/><path d="m115 116 136 86M97 174l173-66" stroke="white" stroke-width="2"/><path d="m97 174 1-32 173-65-1 31" fill="#1c2024" fill-opacity=".8" stroke="white" stroke-width="2"/><path d="m105 150 160-60m-160 67 160-60m-160 67 160-60" stroke="white" stroke-opacity=".5"/><path d="m98 142 172-65" stroke="white" stroke-width="3"/><g transform="rotate(28 280 225)"><rect x="273" y="235" width="13" height="39" rx="5" fill="#1c2024"/><ellipse cx="280" cy="220" rx="29" ry="35" fill="#ffbd59" stroke="#1c2024" stroke-width="3"/></g><g class="rally-ball"><circle cx="74" cy="90" r="12" fill="white"/><path d="m43 102-17 9m21-22-22 2" stroke="white" stroke-width="3" stroke-linecap="round"/></g><path d="m298 51 5 10 11 2-8 8 2 11-10-6-10 6 2-11-8-8 11-2z" fill="#ffbd59"/></svg><span class="table-sticker">OFFICE HOURS?<br>BEST OF THREE.</span></div></section>`;
+  return `<section class="clubhouse-hero"><div class="hero-copy"><div class="hero-location"><span class="dot"></span> CANARY WHARF · LONDON</div><h2>Good colleagues.<br><span>Great rivals.</span></h2><p>${data.user ? `Hey ${esc(first(data.user))}. Your next bragging right is one match away.` : 'A little friendly competition. A lot of “one more game”. Welcome to Nala’s table.'}</p><button class="btn primary" data-action="record">${icon('plus')} ${data.user ? 'Record a match' : 'Get in the game'} ${icon('arrow')}</button><div class="hero-footnote">${data.players.length ? `${data.players.length} players · ${data.standings?.all?.reduce((n,p)=>n+p.wins,0) || 0} matches` : 'New table. Fresh rivalries. First serve is yours.'}</div></div><div class="table-art" aria-hidden="true"><span class="rally-word">LET’S<br>RALLY.</span><svg viewBox="0 0 360 300" fill="none"><ellipse cx="185" cy="260" rx="145" ry="20" fill="#00658a" opacity=".12"/><path d="M82 195v48m208-69v61M166 220v50" stroke="#1c2024" stroke-width="10" stroke-linecap="round"/><path d="m28 159 173-65 139 83-175 71z" fill="#00658a"/><path d="m28 149 173-65 139 83-175 71z" fill="#00a2dc" stroke="white" stroke-width="3" stroke-linejoin="round"/><path d="m115 116 136 86M97 174l173-66" stroke="white" stroke-width="2"/><path d="m97 174 1-32 173-65-1 31" fill="#1c2024" fill-opacity=".8" stroke="white" stroke-width="2"/><path d="m105 150 160-60m-160 67 160-60m-160 67 160-60" stroke="white" stroke-opacity=".5"/><path d="m98 142 172-65" stroke="white" stroke-width="3"/><g transform="rotate(28 280 225)"><rect x="273" y="235" width="13" height="39" rx="5" fill="#1c2024"/><ellipse cx="280" cy="220" rx="29" ry="35" fill="#ffbd59" stroke="#1c2024" stroke-width="3"/></g><g class="rally-ball"><circle cx="74" cy="90" r="12" fill="white"/><path d="m43 102-17 9m21-22-22 2" stroke="white" stroke-width="3" stroke-linecap="round"/></g><path d="m298 51 5 10 11 2-8 8 2 11-10-6-10 6 2-11-8-8 11-2z" fill="#ffbd59"/></svg><span class="table-sticker">OFFICE HOURS?<br>BEST OF THREE.</span></div></section>`;
 }
 function feed() {
-  let games = data.games.filter(
+  let matchResults = data.matches.filter(
     (g) =>
       feedFilter === "all" || [g.player1, g.player2].includes(data.user?.id),
   );
-  return `${heading("The table talk.", "The scores, the stories, and the slightly bruised egos.")}<div class="columns"><div>${clubhouseHero()}<div class="feed-tabs"><button class="${feedFilter === "all" ? "active" : ""}" data-action="feed-filter" data-value="all">Around the table</button><button class="${feedFilter === "mine" ? "active" : ""}" data-action="feed-filter" data-value="mine">My games</button><span class="feed-total">${games.length} games</span></div>${games.length ? games.map((g) => post(g)).join("") : empty("Your story starts here.", "The first rally is history waiting to happen. Who’s taking the opening win?", "Record game", "record")}${data.pagination?.games ? `<button class="btn soft full" data-action="load-more" data-kind="games">Earlier matches</button>` : ""}</div>${rail()}</div>`;
+  return `${heading("The table talk.", "The scores, the stories, and the slightly bruised egos.")}<div class="columns"><div>${clubhouseHero()}<div class="feed-tabs"><button class="${feedFilter === "all" ? "active" : ""}" data-action="feed-filter" data-value="all">Around the table</button><button class="${feedFilter === "mine" ? "active" : ""}" data-action="feed-filter" data-value="mine">My matches</button><span class="feed-total">${matchResults.length} matches</span></div>${matchResults.length ? matchResults.map((g) => post(g)).join("") : empty("Your story starts here.", "The first rally is history waiting to happen. Who’s taking the opening win?", "Record match", "record")}${data.pagination?.matches ? `<button class="btn soft full" data-action="load-more" data-kind="matches">Earlier matches</button>` : ""}</div>${rail()}</div>`;
 }
 function empty(title, copy, button, action) {
   return `<div class="panel empty"><div class="empty-icon">🏓</div><h2>${title}</h2><p>${copy}</p>${button ? `<button class="btn primary" data-action="${action}">${button}</button>` : ""}</div>`;
 }
 function leaderboard() {
   const rows = board();
-  return `${heading("Bragging rights.", "From Canary Wharf to office folklore. Every game counts.", "THE LEADERBOARD")}<div class="filters"><div class="pill-tabs">${[
+  return `${heading("Bragging rights.", "From Canary Wharf to office folklore. Every match counts.", "THE LEADERBOARD")}<div class="filters"><div class="pill-tabs">${[
     ["week", "This week"],
     ["month", "This month"],
     ["all", "All-time"],
@@ -253,11 +261,11 @@ function leaderboard() {
           )
           .join(
             "",
-          )}</div><section class="panel table-panel"><table class="leader-table"><thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Win %</th><th class="hide-mobile">Recent form</th></tr></thead><tbody>${rows.map((p, i) => `<tr class="${p.id === data.user?.id ? "self" : ""}"><td class="num muted">${p.rank}</td><td><a class="player-cell" href="#profile/${p.id}">${avatar(p)}<div><strong>${esc(p.name)}${p.id === data.user?.id ? ' <span class="orange">· you</span>' : ""}</strong><small>@${esc(p.username)}</small></div></a></td><td class="num">${p.wins}</td><td class="num muted">${p.losses}</td><td>${p.rate}%</td><td class="hide-mobile"><div class="week-strip">${form(p.id)}</div></td></tr>`).join("")}</tbody></table></section><p class="tooltip-note">${scope === "week" ? "Week of " + dateLabel(data.weekStart || "2026-10-04") : scope === "month" ? dateLabel(data.monthStart || "2026-10-01") : "Since the first serve"} · Ranked by game wins, then fewest losses. Equal records share a rank.</p>`
+          )}</div><section class="panel table-panel"><table class="leader-table"><thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th><th>Win %</th><th class="hide-mobile">Recent form</th></tr></thead><tbody>${rows.map((p, i) => `<tr class="${p.id === data.user?.id ? "self" : ""}"><td class="num muted">${p.rank}</td><td><a class="player-cell" href="#profile/${p.id}">${avatar(p)}<div><strong>${esc(p.name)}${p.id === data.user?.id ? ' <span class="orange">· you</span>' : ""}</strong><small>@${esc(p.username)}</small></div></a></td><td class="num">${p.wins}</td><td class="num muted">${p.losses}</td><td>${p.rate}%</td><td class="hide-mobile"><div class="week-strip">${form(p.id)}</div></td></tr>`).join("")}</tbody></table></section><p class="tooltip-note">${scope === "week" ? "Week of " + dateLabel(data.weekStart || "2026-10-04") : scope === "month" ? dateLabel(data.monthStart || "2026-10-01") : "Since the first serve"} · Ranked by match wins, then fewest losses. Equal records share a rank.</p>`
       : empty(
           "The crown is unclaimed.",
-          "Be the first to put a game on the board.",
-          "Record game",
+          "Be the first to put a match on the board.",
+          "Record match",
           "record",
         )
   }`;
@@ -277,22 +285,22 @@ function profile(id) {
   if (!data.players.some((x) => x.id === id))
     return empty("Player not found.", "This player card isn’t on the roster.");
   const s = stats(id),
-    games = data.games.filter((g) => [g.player1, g.player2].includes(id)),
+    matchResults = data.matches.filter((g) => [g.player1, g.player2].includes(id)),
     opponents = data.players
       .filter((o) => o.id !== id)
       .map((o) => ({
         ...o,
-        count: data.rivalries ? data.rivalries.find(r=>r.id===id && r.opponent===o.id)?.played || 0 : games.filter((g) => [g.player1, g.player2].includes(o.id)).length,
+        count: data.rivalries ? data.rivalries.find(r=>r.id===id && r.opponent===o.id)?.played || 0 : matchResults.filter((g) => [g.player1, g.player2].includes(o.id)).length,
       }))
       .sort((a, b) => b.count - a.count),
     rival = opponents[0],
-    h2h = games.filter((g) => [g.player1, g.player2].includes(rival?.id)),
+    h2h = matchResults.filter((g) => [g.player1, g.player2].includes(rival?.id)),
     rs = data.rivalries ? data.rivalries.find(r=>r.id===id && r.opponent===rival?.id) || {played:0,wins:0,losses:0} : stats(id, h2h);
   return `${heading("Player card.", "A little personality behind the paddle.", "THE ROSTER")}<div class="columns"><div><section class="panel profile-panel"><div class="profile-cover"><span>PLAY YOUR GAME.</span></div><div class="profile-intro">${avatar(p, "large")}${data.user?.id === id ? `<button class="btn ghost small profile-edit" data-action="edit-profile">${icon("edit")} Edit profile</button>` : `<button class="btn ghost small profile-edit" data-action="record" data-opponent="${id}">Record a match</button>`}<h1>${esc(p.name)}</h1><small>@${esc(p.username)} · Nalaboard player</small><p class="bio">${esc(p.bio || "New to the table. Ready to play.")}</p><div class="badges">${s.wins ? '<span class="badge">🏓 First W</span>' : ""}${s.played >= 5 ? '<span class="badge">🔥 Table regular</span>' : ""}${s.rate >= 70 && s.played ? '<span class="badge">⚡ On a roll</span>' : ""}<span class="badge">✦ Founding roster</span></div></div></section><div class="stats-grid">${[
     ["Wins", s.wins],
     ["Losses", s.losses],
     ["Win rate", s.rate + "%"],
-    ["Games played", s.played],
+    ["Matches played", s.played],
   ]
     .map(
       ([label, v]) =>
@@ -300,36 +308,36 @@ function profile(id) {
     )
     .join(
       "",
-    )}</div><div class="section-title"><h2>From the table</h2><small>${s.played} games played</small></div>${games.length ? games.map((g) => post(g)).join("") : empty("The first serve awaits.", "Record a game to start your match history.", "Record game", "record")}${data.pagination?.games ? `<button class="btn soft full" data-action="load-more" data-kind="games">Earlier matches</button>` : ""}</div><aside class="rail"><section class="panel"><div class="section-title"><h3>The rivalry</h3><span>⚔</span></div>${rival?.count ? `<a href="#profile/${rival.id}" class="rivalry">${avatar(rival, "medium")}<div><strong>${esc(rival.name)}</strong><small style="display:block">${rs.played} games together</small></div></a><div class="rivalry"><span class="display">${rs.wins} <span class="muted">—</span> ${rs.losses}</span><small>${rs.wins === rs.losses ? "Dead even. Rematch?" : rs.wins > rs.losses ? "You have the edge." : "A comeback is calling."}</small></div><div class="progress"><span style="width:${(rs.wins / rs.played) * 100}%"></span></div><div class="rival-labels"><span>${esc(first(p))}</span><span>${esc(first(rival))}</span></div>` : '<p class="muted">Your rivalries begin with your first game.</p>'}</section><section class="panel"><h3>Recent form</h3><div class="week-strip" style="margin-top:18px">${form(id) || "<small>No games yet</small>"}</div><p class="tooltip-note">Last five games · oldest to newest</p></section><section class="panel quote-panel"><div class="eyebrow">THE PLAYER’S CREED</div><h3>Win with grace.<br>Lose with a rematch.</h3><p>There’s always another game.</p></section></aside></div>`;
+    )}</div><div class="section-title"><h2>From the table</h2><small>${s.played} matches played</small></div>${matchResults.length ? matchResults.map((g) => post(g)).join("") : empty("The first serve awaits.", "Record a match to start your match history.", "Record match", "record")}${data.pagination?.matches ? `<button class="btn soft full" data-action="load-more" data-kind="matches">Earlier matches</button>` : ""}</div><aside class="rail"><section class="panel"><div class="section-title"><h3>The rivalry</h3><span>⚔</span></div>${rival?.count ? `<a href="#profile/${rival.id}" class="rivalry">${avatar(rival, "medium")}<div><strong>${esc(rival.name)}</strong><small style="display:block">${rs.played} matches together</small></div></a><div class="rivalry"><span class="display">${rs.wins} <span class="muted">—</span> ${rs.losses}</span><small>${rs.wins === rs.losses ? "Dead even. Rematch?" : rs.wins > rs.losses ? "You have the edge." : "A comeback is calling."}</small></div><div class="progress"><span style="width:${(rs.wins / rs.played) * 100}%"></span></div><div class="rival-labels"><span>${esc(first(p))}</span><span>${esc(first(rival))}</span></div>` : '<p class="muted">Your rivalries begin with your first match.</p>'}</section><section class="panel"><h3>Recent form</h3><div class="week-strip" style="margin-top:18px">${form(id) || "<small>No matches yet</small>"}</div><p class="tooltip-note">Last five matches · oldest to newest</p></section><section class="panel quote-panel"><div class="eyebrow">THE PLAYER’S CREED</div><h3>Win with grace.<br>Lose with a rematch.</h3><p>There’s always another game.</p></section></aside></div>`;
 }
 function match(id) {
-  const g = data.games.find((g) => g.id === id);
-  if (!g) return empty("Game not found.", "This game isn’t on the board.");
+  const g = data.matches.find((g) => g.id === id);
+  if (!g) return empty("Match not found.", "This match isn’t on the board.");
   const p1 = player(g.player1),
     p2 = player(g.player2),
     mine = [g.player1, g.player2].includes(data.user?.id),
-    h2h = data.games.filter(
+    h2h = data.matches.filter(
       (x) =>
         [x.player1, x.player2].includes(p1.id) &&
         [x.player1, x.player2].includes(p2.id),
     ),
     s = data.rivalries ? data.rivalries.find(r=>r.id===p1.id && r.opponent===p2.id) || {played:0,wins:0,losses:0} : stats(p1.id, h2h);
-  return `${heading("The game receipt.", "The result. The rivalry. The full story.", "GAME DETAILS", mine ? `<div class="game-actions"><button class="btn soft" data-action="share-game" data-game="${id}">${icon("share")} Share game</button><button class="btn ghost" data-action="correct" data-game="${id}">${icon("edit")} Correct score</button></div>` : "")}<div class="columns"><div><section class="panel match-hero"><div class="eyebrow muted">${dateLabel(g.date)} · OFFICE TABLE · FINAL</div><div class="match-versus"><a class="competitor" href="#profile/${p1.id}">${avatar(p1, "large")}<h3>${esc(first(p1))}</h3><small>@${esc(p1.username)}</small></a><div class="display">${g.score1}<span class="muted"> : </span>${g.score2}</div><a class="competitor" href="#profile/${p2.id}">${avatar(p2, "large")}<h3>${esc(first(p2))}</h3><small>@${esc(p2.username)}</small></a></div>${matchScores(g)}<div class="badge" style="display:inline-block;margin-bottom:22px">${g.matches.some(m=>m.type==='deuce') ? "🔥 Deuce drama" : "🏓 " + esc(first(g.score1 > g.score2 ? p1 : p2)) + " took the W"}</div>${g.notes ? `<p class="notes">“${esc(g.notes)}”</p>` : ""}</section><div style="margin-top:24px">${post(g, { detail: true })}</div></div><aside class="rail"><section class="panel"><h3>Head to head</h3><div class="rivalry"><span class="display">${s.wins} <span class="muted">—</span> ${s.losses}</span><small>${s.played} games played</small></div><div class="progress"><span style="width:${(s.wins / s.played) * 100}%"></span></div><div class="rival-labels"><span>${esc(first(p1))}</span><span>${esc(first(p2))}</span></div></section><section class="panel"><h3>The paper trail</h3><p class="tooltip-note" style="margin-bottom:15px">Every change. Every player. All here.</p>${g.history.map((e) => `<div class="history-item"><strong>${esc(first(player(e.actor)))}</strong> · ${esc(e.text)}${e.after?.score1 != null ? `<div class="tooltip-note">${e.before ? `${receipt(e.before,g)} → ` : ""}${receipt(e.after,g)}</div>` : ""}${e.agent ? `<small>via ${esc(e.agent)}</small>` : ""}<small>${dateLabel(e.createdAt.slice(0, 10))} · ${timeLabel(e.createdAt)}</small></div>`).join("")}</section></aside></div><section class="panel mobile-only" style="margin-top:20px"><h3>The paper trail</h3>${g.history.map((e) => `<div class="history-item"><strong>${esc(first(player(e.actor)))}</strong> · ${esc(e.text)}${e.after?.score1 != null ? `<div class="tooltip-note">${e.before ? `${receipt(e.before,g)} → ` : ""}${receipt(e.after,g)}</div>` : ""}<small>${timeLabel(e.createdAt)}${e.agent ? " · via " + esc(e.agent) : ""}</small></div>`).join("")}</section>`;
+  return `${heading("The match receipt.", "The result. The rivalry. The full story.", "MATCH DETAILS", mine ? `<div class="match-actions"><button class="btn soft" data-action="share-match" data-match-id="${id}">${icon("share")} Share match</button><button class="btn ghost" data-action="correct" data-match-id="${id}">${icon("edit")} Correct score</button></div>` : "")}<div class="columns"><div><section class="panel match-hero"><div class="eyebrow muted">${dateLabel(g.date)} · OFFICE TABLE · FINAL</div><div class="match-versus"><a class="competitor" href="#profile/${p1.id}">${avatar(p1, "large")}<h3>${esc(first(p1))}</h3><small>@${esc(p1.username)}</small></a><div class="display">${g.score1}<span class="muted"> : </span>${g.score2}</div><a class="competitor" href="#profile/${p2.id}">${avatar(p2, "large")}<h3>${esc(first(p2))}</h3><small>@${esc(p2.username)}</small></a></div>${gameScores(g)}<div class="badge" style="display:inline-block;margin-bottom:22px">${g.games.some(m=>m.type==='deuce') ? "🔥 Deuce drama" : "🏓 " + esc(first(g.score1 > g.score2 ? p1 : p2)) + " took the W"}</div>${g.notes ? `<p class="notes">“${esc(g.notes)}”</p>` : ""}</section><div style="margin-top:24px">${post(g, { detail: true })}</div></div><aside class="rail"><section class="panel"><h3>Head to head</h3><div class="rivalry"><span class="display">${s.wins} <span class="muted">—</span> ${s.losses}</span><small>${s.played} matches played</small></div><div class="progress"><span style="width:${(s.wins / s.played) * 100}%"></span></div><div class="rival-labels"><span>${esc(first(p1))}</span><span>${esc(first(p2))}</span></div></section><section class="panel"><h3>The paper trail</h3><p class="tooltip-note" style="margin-bottom:15px">Every change. Every player. All here.</p>${g.history.map((e) => `<div class="history-item"><strong>${esc(first(player(e.actor)))}</strong> · ${esc(e.text)}${e.after?.score1 != null ? `<div class="tooltip-note">${e.before ? `${receipt(e.before,g)} → ` : ""}${receipt(e.after,g)}</div>` : ""}${e.agent ? `<small>via ${esc(e.agent)}</small>` : ""}<small>${dateLabel(e.createdAt.slice(0, 10))} · ${timeLabel(e.createdAt)}</small></div>`).join("")}</section></aside></div><section class="panel mobile-only" style="margin-top:20px"><h3>The paper trail</h3>${g.history.map((e) => `<div class="history-item"><strong>${esc(first(player(e.actor)))}</strong> · ${esc(e.text)}${e.after?.score1 != null ? `<div class="tooltip-note">${e.before ? `${receipt(e.before,g)} → ` : ""}${receipt(e.after,g)}</div>` : ""}<small>${timeLabel(e.createdAt)}${e.agent ? " · via " + esc(e.agent) : ""}</small></div>`).join("")}</section>`;
 }
 function activity() {
-  if (!data.user) return empty("Sign in to view account activity.", "Game results, profiles, notes and comments are public. Account activity is for members.", "Sign in", "signin");
+  if (!data.user) return empty("Sign in to view account activity.", "Match results, profiles, notes and comments are public. Account activity is for members.", "Sign in", "signin");
   const events = data.activity.filter(
     (e) =>
       activityFilter === "all" ||
-      (activityFilter === "games"
-        ? e.action.startsWith("game.")
+      (activityFilter === "matches"
+        ? e.action.startsWith("match.")
         : activityFilter === "social"
           ? /^(reaction|comment)\./.test(e.action)
           : e.action.startsWith("profile.") || e.action.startsWith("agent.")),
   );
   return `${heading("Nothing under the table.", "An open record of who did what. No mysteries, just receipts.", "ACTIVITY HISTORY")}<div class="tabs">${[
     ["all", "Everything"],
-    ["games", "Scores & corrections"],
+    ["matches", "Scores & corrections"],
     ["social", "Social"],
     ["profiles", "Players & agents"],
   ]
@@ -339,7 +347,7 @@ function activity() {
     )
     .join(
       "",
-    )}</div><div class="columns"><section class="panel">${events.length ? events.map((e) => `<div class="activity-item">${avatar(player(e.actor))}<div class="event-text"><strong>${esc(player(e.actor).name)}</strong>${e.agent ? ` <span class="badge">via ${esc(e.agent)}</span>` : ""}<p>${esc(e.text)}${e.gameId ? ` · <a class="orange" href="#match/${e.gameId}">View game</a>` : ""}</p>${e.action === "profile.updated" ? `<small>${esc(e.before.username)} → ${esc(e.after.username)}</small>` : ""}</div><small>${dateLabel(e.createdAt.slice(0, 10))}<br>${timeLabel(e.createdAt)}</small><div class="event-icon">${icon(e.action.startsWith("game.") ? "ball" : e.action.startsWith("agent.") ? "agent" : "activity")}</div></div>`).join("") : empty("Quiet on this side.", "Actions will appear here as the clubhouse gets going.")}${data.pagination?.activity ? `<button class="btn soft full" data-action="load-more" data-kind="activity">Earlier activity</button>` : ""}</section><aside class="rail"><section class="panel"><h3>Good games.<br>Honest records.</h3><p class="tooltip-note">Score corrections keep the original result in the match history. Actions taken by agents are attributed to their player.</p><a class="btn soft full" href="#feed" style="margin-top:20px">Back to the conversation</a></section></aside></div>`;
+    )}</div><div class="columns"><section class="panel">${events.length ? events.map((e) => `<div class="activity-item">${avatar(player(e.actor))}<div class="event-text"><strong>${esc(player(e.actor).name)}</strong>${e.agent ? ` <span class="badge">via ${esc(e.agent)}</span>` : ""}<p>${esc(e.text)}${e.matchId ? ` · <a class="orange" href="#match/${e.matchId}">View match</a>` : ""}</p>${e.action === "profile.updated" ? `<small>${esc(e.before.username)} → ${esc(e.after.username)}</small>` : ""}</div><small>${dateLabel(e.createdAt.slice(0, 10))}<br>${timeLabel(e.createdAt)}</small><div class="event-icon">${icon(e.action.startsWith("match.") ? "ball" : e.action.startsWith("agent.") ? "agent" : "activity")}</div></div>`).join("") : empty("Quiet on this side.", "Actions will appear here as the clubhouse gets going.")}${data.pagination?.activity ? `<button class="btn soft full" data-action="load-more" data-kind="activity">Earlier activity</button>` : ""}</section><aside class="rail"><section class="panel"><h3>Good games.<br>Honest records.</h3><p class="tooltip-note">Score corrections keep the original result in the match history. Actions taken by agents are attributed to their player.</p><a class="btn soft full" href="#feed" style="margin-top:20px">Back to the conversation</a></section></aside></div>`;
 }
 let shareDraft = null;
 let setupToken = null;
@@ -360,14 +368,14 @@ function agents() {
     .join(
       "",
     )}</div><div class="step-label">02 · Give it the playbook</div>${setupToken ? `<div class="code-block">${esc(setupInstruction(setupToken))}</div><button class="btn primary full" data-action="copy-setup" style="margin-top:15px">${icon("copy")} Copy setup instruction</button><p class="tooltip-note">Connection created. Your agent still needs to run the instruction. Shown once here; disconnect it below anytime.</p>` : `<div class="code-block">Connect ${esc(agentClient)} to your player account.<br>Read the skill. Save your personal key.<br>Ready for the first serve.</div><button class="btn primary full" data-action="connect-agent" style="margin-top:15px">${icon("agent")} ${data.user ? "Create " + esc(agentClient) + " connection" : "Sign in to connect"}</button><p class="tooltip-note">Creates a personal API key that expires in 90 days. No agent app is installed automatically.</p>`}<div style="display:flex;justify-content:space-between;margin-top:22px"><a class="quiet-link" href="/agent.md" download="SKILL.md">Download skill</a><button class="quiet-link" data-action="manual-key">Use an API key instead</button></div></section><section class="panel"><h3>A pretty capable teammate.</h3>${[
-    ["ball", "Record & correct games", "Only games you’re involved in."],
+    ["ball", "Record & correct matches", "Only matches you’re involved in."],
     [
       "players",
       "Make your player card yours",
       "Photo, avatar, username, and bio.",
     ],
     ["comment", "Join the table talk", "Comments and emoji reactions."],
-    ["board", "Know where you stand", "Rankings, games, and rivalries."],
+    ["board", "Know where you stand", "Rankings, matches, and rivalries."],
     [
       "activity",
       "Leave clear receipts",
@@ -415,7 +423,7 @@ function render() {
     ["agents", "agent", "Agents"],
   ];
   $("#app").innerHTML =
-    `<div class="layout"><aside class="sidebar"><a href="#feed" class="logo"><img class="brand-image" src="/brand-logo.png" width="800" height="210" alt="Nalaboard"></a><div class="eyebrow">The office ping pong club</div><nav class="nav" aria-label="Main navigation">${nav.map(([r, i, t]) => `<a href="#${r}" class="${page === r ? "active" : ""}">${icon(i)} ${t}${r === "agents" ? '<span class="count">NEW</span>' : ""}</a>`).join("")}</nav><button class="btn primary sidebar-record" data-action="record">${icon("plus")} Record game</button><div class="sidebar-bottom"><div class="table-status"><span class="dot"></span>The table is calling.<br><span style="font-size:10px;margin-left:13px">NALA · Canary Wharf, London</span></div><button class="account" data-action="account" style="width:100%;text-align:left">${avatar(data.user || { name: "Guest", avatar: "🏓", color: "#9fae8e" })}<div><strong>${data.user ? esc(data.user.name) : "Grab a paddle"}</strong><small>${data.user ? "@" + esc(data.user.username) : "Join the clubhouse"}</small></div>${icon("more")}</button></div></aside><main class="main"><header class="topbar"><span class="crumb">The clubhouse <span style="margin:0 10px;color:#b2b4a6">/</span> <b>${nav.find((n) => n[0] === page)?.[2] || "The game"}</b></span><a class="logo mobile-brand" href="#feed"><img class="brand-image" src="/brand-logo.png" width="800" height="210" alt="Nalaboard"></a><div class="topbar-right"><span class="eyebrow muted" style="font-size:9px">REAL SCORES. REAL PRIDE.</span>${data.user ? `<button data-action="account" aria-label="Your account">${avatar(data.user, "tiny")}</button>` : `<button class="btn small" data-action="signin">Sign in</button>`}</div></header><div class="content">${{ feed, leaderboard, players, profile: () => profile(id), match: () => match(id), activity, agents }[page]()}</div></main><nav class="mobile-nav" aria-label="Mobile navigation">${[
+    `<div class="layout"><aside class="sidebar"><a href="#feed" class="logo"><img class="brand-image" src="/brand-logo.png" width="800" height="210" alt="Nalaboard"></a><div class="eyebrow">The office ping pong club</div><nav class="nav" aria-label="Main navigation">${nav.map(([r, i, t]) => `<a href="#${r}" class="${page === r ? "active" : ""}">${icon(i)} ${t}${r === "agents" ? '<span class="count">NEW</span>' : ""}</a>`).join("")}</nav><button class="btn primary sidebar-record" data-action="record">${icon("plus")} Record match</button><div class="sidebar-bottom"><div class="table-status"><span class="dot"></span>The table is calling.<br><span style="font-size:10px;margin-left:13px">NALA · Canary Wharf, London</span></div><button class="account" data-action="account" style="width:100%;text-align:left">${avatar(data.user || { name: "Guest", avatar: "🏓", color: "#9fae8e" })}<div><strong>${data.user ? esc(data.user.name) : "Grab a paddle"}</strong><small>${data.user ? "@" + esc(data.user.username) : "Join the clubhouse"}</small></div>${icon("more")}</button></div></aside><main class="main"><header class="topbar"><span class="crumb">The clubhouse <span style="margin:0 10px;color:#b2b4a6">/</span> <b>${nav.find((n) => n[0] === page)?.[2] || "The game"}</b></span><a class="logo mobile-brand" href="#feed"><img class="brand-image" src="/brand-logo.png" width="800" height="210" alt="Nalaboard"></a><div class="topbar-right"><span class="eyebrow muted" style="font-size:9px">REAL SCORES. REAL PRIDE.</span>${data.user ? `<button data-action="account" aria-label="Your account">${avatar(data.user, "tiny")}</button>` : `<button class="btn small" data-action="signin">Sign in</button>`}</div></header><div class="content">${{ feed, leaderboard, players, profile: () => profile(id), match: () => match(id), activity, agents }[page]()}</div></main><nav class="mobile-nav" aria-label="Mobile navigation">${[
       ["feed", "feed", "Feed"],
       ["leaderboard", "board", "Standings"],
     ]
@@ -425,7 +433,7 @@ function render() {
       )
       .join(
         "",
-      )}<button class="record-nav" data-action="record" aria-label="Record game">${icon("plus")}</button><a href="#players" class="${page === "players" ? "active" : ""}">${icon("players")}Players</a><a href="#agents" class="${page === "agents" ? "active" : ""}">${icon("agent")}Agents</a></nav></div>`;
+      )}<button class="record-nav" data-action="record" aria-label="Record match">${icon("plus")}</button><a href="#players" class="${page === "players" ? "active" : ""}">${icon("players")}Players</a><a href="#agents" class="${page === "agents" ? "active" : ""}">${icon("agent")}Agents</a></nav></div>`;
 }
 function closeModal() {
   const root = $("#modal-root");
@@ -463,14 +471,14 @@ function requireLogin() {
   return true;
 }
 let recordDraft;
-function recordGame(opponent = "", game = null) {
+function recordMatch(opponent = "", matchResult = null) {
   if (!requireLogin()) return;
-  recordDraft = {opponent:game?.player2 || opponent,game,matches:game?.matches || [],date:today,notes:game?.notes || ""};
+  recordDraft = {opponent:matchResult?.player2 || opponent,matchResult,games:matchResult?.games || [],date:today,notes:matchResult?.notes || "",single:matchResult?.games.length===1};
   if (!recordDraft.opponent) chooseOpponent();
   else recordScores();
 }
 function chooseOpponent() {
-  const recent = [...new Set(data.games.filter(g => [g.player1,g.player2].includes(data.user.id)).map(g => g.player1 === data.user.id ? g.player2 : g.player1))];
+  const recent = [...new Set(data.matches.filter(g => [g.player1,g.player2].includes(data.user.id)).map(g => g.player1 === data.user.id ? g.player2 : g.player1))];
   const people = data.players.filter(p => p.id !== data.user.id).sort((a,b) => {
     const rank = p => recent.includes(p.id) ? recent.indexOf(p.id) : Infinity;
     return rank(a)-rank(b) || a.name.localeCompare(b.name);
@@ -478,9 +486,9 @@ function chooseOpponent() {
   modal(`<header class="record-header"><div class="eyebrow orange">PUT IT ON THE BOARD · 1 / 2</div><h2>Who did you play?</h2><p class="muted">Pick your opponent. Then straight to the score.</p></header><div class="record-scroll"><input id="opponent-search" type="search" placeholder="Find a player…" aria-label="Find a player"><p class="record-player-hint">RECENT OPPONENTS FIRST</p><div class="record-players">${people.map(p => `<button class="record-player" data-action="choose-opponent" data-opponent="${p.id}" data-search="${esc((p.name+' '+p.username).toLowerCase())}">${avatar(p)}<span><strong>${esc(p.name)}</strong><small>@${esc(p.username)}</small></span></button>`).join('')}</div><p id="opponent-empty" class="field-hint" ${people.length ? 'hidden' : ''}>No players found.</p></div><footer class="record-footer"><span class="field-hint">Choose a player to continue.</span><button class="btn ghost" data-action="close">Cancel</button></footer>`, {record:true,focus:'#opponent-search'});
 }
 function recordScores() {
-  const {game,opponent,matches,date,notes} = recordDraft, me = game ? player(game.player1) : data.user, other = player(opponent);
-  modal(`<header class="record-header"><div class="eyebrow orange">${game ? 'KEEP THE RECEIPTS HONEST' : 'PUT IT ON THE BOARD · 2 / 2'}</div><h2>${game ? 'Correct the score.' : 'How’d it go?'}</h2><p class="muted">${game ? 'The original scores stay in the game history.' : 'Best of three. First to two match wins.'}</p></header><form class="record-form" data-form="game" novalidate data-player1name="${esc(first(me))}" data-player2name="${esc(first(other))}" ${game ? `data-game="${game.id}" data-revision="${game.revision}"` : ''}><div class="record-scroll"><div class="record-matchup"><strong>${esc(first(me))}</strong><span>vs</span><strong>${esc(first(other))}</strong>${game ? '' : '<button type="button" class="quiet-link" data-action="change-opponent">Change</button>'}</div>${game ? '' : `<input type="hidden" name="opponent" value="${opponent}">`}${matchInputs(matches,first(me),first(other))}<small class="field-hint">Play to 11. At 10–10, choose Deuce finish.</small><div class="record-extras">${game ? '' : `<button type="button" class="quiet-link" data-action="record-extra" data-target="record-date" aria-expanded="false">${icon('activity')} <span id="record-date-label">${date === today ? 'Today' : esc(date)}</span> · Change</button>`}<button type="button" class="quiet-link" data-action="record-extra" data-target="record-note" aria-expanded="${!!notes}">${icon('edit')} Post a note</button></div>${game ? '' : `<div id="record-date" hidden><label for="date">When did you play?</label><input id="date" name="date" type="date" value="${date}" max="${today}" required></div>`}<div id="record-note" ${notes ? '' : 'hidden'}><label for="notes">Post a note <span class="muted">· optional</span></label><textarea id="notes" name="notes" maxlength="240" placeholder="A humble brag. A rematch request. An unbelievable rally.">${esc(notes)}</textarea><small class="field-hint">Your note appears in the feed with this game.</small></div></div><footer class="record-footer"><div class="record-status"><p class="series-status field-hint"></p><div class="form-error" role="alert"></div></div><button class="btn primary" type="submit">${game ? 'Save correction' : 'Record game'} ${icon('check')}</button></footer></form>`, {record:true,focus:'#m0a, input[name="winner0"]'});
-  updateDecider(document.querySelector('form[data-form="game"]'));
+  const {matchResult,opponent,games,date,notes,single} = recordDraft, me = matchResult ? player(matchResult.player1) : data.user, other = player(opponent);
+  modal(`<header class="record-header"><div class="eyebrow orange">${matchResult ? 'KEEP THE RECEIPTS HONEST' : 'PUT IT ON THE BOARD · 2 / 2'}</div><h2>${matchResult ? 'Correct the score.' : 'How’d it go?'}</h2><p class="muted" data-record-description>${matchResult ? 'The original scores stay in the match history.' : 'Best of three. First to two game wins.'}</p></header><form class="record-form" data-form="match" novalidate data-single="${single}" data-player1name="${esc(first(me))}" data-player2name="${esc(first(other))}" ${matchResult ? `data-match-id="${matchResult.id}" data-revision="${matchResult.revision}"` : ''}><div class="record-scroll"><div class="record-matchup"><strong>${esc(first(me))}</strong><span>vs</span><strong>${esc(first(other))}</strong>${matchResult ? '' : '<button type="button" class="quiet-link" data-action="change-opponent">Change</button>'}</div>${matchResult ? '' : `<input type="hidden" name="opponent" value="${opponent}">`}${gameInputs(games,first(me),first(other))}<div class="single-game-summary" hidden><strong>Single-game match</strong><button type="button" class="quiet-link" data-action="best-of-three">Play best of three instead</button></div><small class="field-hint">Play to 11. At 10–10, choose Deuce finish.</small><div class="record-extras">${matchResult ? '' : `<button type="button" class="quiet-link" data-action="record-extra" data-target="record-date" aria-expanded="false">${icon('activity')} <span id="record-date-label">${date === today ? 'Today' : esc(date)}</span> · Change</button>`}<button type="button" class="quiet-link" data-action="record-extra" data-target="record-note" aria-expanded="${!!notes}">${icon('edit')} Post a note</button></div>${matchResult ? '' : `<div id="record-date" hidden><label for="date">When did you play?</label><input id="date" name="date" type="date" value="${date}" max="${today}" required></div>`}<div id="record-note" ${notes ? '' : 'hidden'}><label for="notes">Post a note <span class="muted">· optional</span></label><textarea id="notes" name="notes" maxlength="240" placeholder="A humble brag. A rematch request. An unbelievable rally.">${esc(notes)}</textarea><small class="field-hint">Your note appears in the feed with this match.</small></div></div><footer class="record-footer"><div class="record-status"><p class="series-status field-hint" aria-live="polite"></p><div class="form-error" role="alert"></div></div><button class="btn primary" type="submit">${matchResult ? 'Save correction' : 'Record match'} ${icon('check')}</button></footer></form>`, {record:true,focus:'#m0a, input[name="winner0"]'});
+  updateDecider(document.querySelector('form[data-form="match"]'));
 }
 function sizeRecordDialog() {
   const overlay = document.querySelector('.record-overlay');
@@ -502,7 +510,7 @@ function editProfile(onboard = false) {
 function account() {
   if (!data.user) return signIn();
   modal(
-    `<div class="eyebrow orange">YOUR CORNER</div><h2>Hey, ${esc(first(data.user))}.</h2><p class="muted">${esc(data.user.email)}</p><a class="btn soft full" href="#profile/${data.user.id}" data-action="close">${icon("players")} My player card</a><button class="btn soft full" data-action="edit-profile" style="margin-top:10px">${icon("edit")} Edit profile</button><a class="btn soft full" href="#activity" data-action="close" style="margin-top:10px">${icon("activity")} Activity history</a><label style="display:flex;gap:10px;align-items:center;margin-top:24px"><input style="width:auto" type="checkbox" data-preference="notifications" ${data.user.notifications ? "checked" : ""}> Match and comment emails</label><small class="field-hint">Sign-in and agent security emails stay on.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="weekly" ${data.user.weeklyRecap ? "checked" : ""}> Weekly recap</label><small class="field-hint">Friday at 5 PM London time. This week’s winner and their games.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="daily" ${data.user.dailyMatchups ? "checked" : ""}> Daily matchups</label><small class="field-hint">Weekdays at 8 AM London time. Turning this off also removes you from the pairing pool.</small><button class="btn ghost full" data-action="logout" style="margin-top:23px">${icon("logout")} Sign out</button>`,
+    `<div class="eyebrow orange">YOUR CORNER</div><h2>Hey, ${esc(first(data.user))}.</h2><p class="muted">${esc(data.user.email)}</p><a class="btn soft full" href="#profile/${data.user.id}" data-action="close">${icon("players")} My player card</a><button class="btn soft full" data-action="edit-profile" style="margin-top:10px">${icon("edit")} Edit profile</button><a class="btn soft full" href="#activity" data-action="close" style="margin-top:10px">${icon("activity")} Activity history</a><label style="display:flex;gap:10px;align-items:center;margin-top:24px"><input style="width:auto" type="checkbox" data-preference="notifications" ${data.user.notifications ? "checked" : ""}> Match and comment emails</label><small class="field-hint">Sign-in and agent security emails stay on.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="weekly" ${data.user.weeklyRecap ? "checked" : ""}> Weekly recap</label><small class="field-hint">Friday at 5 PM London time. This week’s winner and their matches.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="daily" ${data.user.dailyMatchups ? "checked" : ""}> Daily matchups</label><small class="field-hint">Weekdays at 8 AM London time. Turning this off also removes you from the pairing pool.</small><button class="btn ghost full" data-action="logout" style="margin-top:23px">${icon("logout")} Sign out</button>`,
   );
 }
 function weeklyPreferencePage(token,daily=false) {
@@ -581,7 +589,7 @@ function celebrateReaction(card, emoji) {
 
 async function action(el) {
   const type = el.dataset.action,
-    id = el.dataset.game;
+    id = el.dataset.matchId;
   switch (type) {
     case "close":
       closeModal();
@@ -604,7 +612,7 @@ async function action(el) {
       catch(err) { el.disabled=false;throw err; }
       break;
     case "record":
-      recordGame(el.dataset.opponent);
+      recordMatch(el.dataset.opponent);
       break;
     case "choose-opponent":
       recordDraft.opponent = el.dataset.opponent;
@@ -612,7 +620,8 @@ async function action(el) {
       break;
     case "change-opponent": {
       const f = el.closest('form');
-      recordDraft.matches = [...f.querySelectorAll('[data-match]')].map(readMatch);
+      recordDraft.games = [...f.querySelectorAll('[data-game-index]')].map(readGame);
+      recordDraft.single = f.dataset.single==='true';
       recordDraft.notes = f.elements.notes.value;
       recordDraft.date = f.elements.date.value;
       chooseOpponent();
@@ -625,29 +634,38 @@ async function action(el) {
       if (!section.hidden) section.querySelector('input,textarea')?.focus();
       break;
     }
-    case "share-game":
+    case "share-match":
       if(!requireLogin()) break;
       try {
-        const g=data.games.find(g=>g.id===id), result=await api("/games/"+id+"/share");
+        const g=data.matches.find(g=>g.id===id), result=await api("/matches/"+id+"/share");
         shareDraft={url:result.url,title:first(player(g.player1))+" vs "+first(player(g.player2))+" · "+g.score1+"–"+g.score2};
-        modal(`<div class="eyebrow orange">PASS THE RECEIPT</div><h2>Good games travel.</h2><p class="muted">Anyone with this link can see player names and scores. Comments, notes, photos, and profiles stay in the clubhouse.</p><img src="${esc(result.url)}/image.png?v=${g.revision}" alt="${esc(shareDraft.title)} game share card" style="display:block;width:100%;height:auto;border-radius:14px;margin:22px 0"><label for="share-url">Game link</label><input id="share-url" value="${esc(result.url)}" readonly><div class="form-footer" style="flex-wrap:wrap">${navigator.share?'<button class="btn primary" data-action="native-share">'+icon('share')+' Share</button>':''}<button class="btn soft" data-action="copy-game-link">Copy link</button><a class="btn ghost" href="${esc(result.url)}/image.png?v=${g.revision}" download="nalaboard-game.png">Save card</a></div>`);
+        modal(`<div class="eyebrow orange">PASS THE RECEIPT</div><h2>Good matches travel.</h2><p class="muted">Anyone with this link can see player names and scores. Comments, notes, photos, and profiles stay in the clubhouse.</p><img src="${esc(result.url)}/image.png?v=${g.revision}" alt="${esc(shareDraft.title)} match share card" style="display:block;width:100%;height:auto;border-radius:14px;margin:22px 0"><label for="share-url">Match link</label><input id="share-url" value="${esc(result.url)}" readonly><div class="form-footer" style="flex-wrap:wrap">${navigator.share?'<button class="btn primary" data-action="native-share">'+icon('share')+' Share</button>':''}<button class="btn soft" data-action="copy-match-link">Copy link</button><a class="btn ghost" href="${esc(result.url)}/image.png?v=${g.revision}" download="nalaboard-match.png">Save card</a></div>`);
       } catch(e) {toast(e.message);}
       break;
     case "native-share":
       try {await navigator.share(shareDraft);} catch(e) {if(e.name!=="AbortError")toast("Sharing is unavailable here. Use Copy link instead.");}
       break;
-    case "copy-game-link":
-      try {await navigator.clipboard.writeText(shareDraft.url);toast("Game link copied.");} catch {$('#share-url').select();toast("Select and copy the game link.");}
+    case "copy-match-link":
+      try {await navigator.clipboard.writeText(shareDraft.url);toast("Match link copied.");} catch {$('#share-url').select();toast("Select and copy the match link.");}
       break;
-    case "match-mode": {
-      const row=el.closest('[data-match]'),form=row.closest('form'),i=Number(row.dataset.match),names=[form.dataset.player1name,form.dataset.player2name];
+    case "single-game":
+    case "best-of-three": {
+      const form=el.closest('form');
+      form.dataset.single=type==='single-game'?'true':'false';
+      form.querySelector('.form-error').textContent='';
+      updateDecider(form);
+      (type==='single-game'?form.querySelector('button[type="submit"]'):form.querySelector('[data-game-index="1"] input')).focus();
+      break;
+    }
+    case "game-mode": {
+      const row=el.closest('[data-game-index]'),form=row.closest('form'),i=Number(row.dataset.gameIndex),names=[form.dataset.player1name,form.dataset.player2name];
       const values={score1:form.elements['m'+i+'a']?.value??'',score2:form.elements['m'+i+'b']?.value??'',type:el.dataset.mode};
-      row.outerHTML=matchInput(i,values,names);form.querySelector(".form-error").textContent="";updateDecider(form);break;
+      row.outerHTML=gameInput(i,values,names);form.querySelector(".form-error").textContent="";updateDecider(form);break;
     }
     case "correct":
-      recordGame(
+      recordMatch(
         "",
-        data.games.find((g) => g.id === id),
+        data.matches.find((g) => g.id === id),
       );
       break;
     case "edit-profile":
@@ -687,7 +705,7 @@ async function action(el) {
       break;
     }
     case "subscription":
-      await api("/games/" + id + "/subscription", "PATCH", {muted:el.dataset.muted !== "true"});
+      await api("/matches/" + id + "/subscription", "PATCH", {muted:el.dataset.muted !== "true"});
       await refresh();
       break;
     case "comments":
@@ -703,19 +721,19 @@ async function action(el) {
       if (pendingReactions.has(id)) return;
       pendingReactions.add(id);
       const emoji = el.dataset.emoji;
-      const removing = data.games.find(g => g.id === id)?.reactions[emoji]?.includes(data.user.id);
+      const removing = data.matches.find(g => g.id === id)?.reactions[emoji]?.includes(data.user.id);
       try {
-        await api("/games/" + id + "/react", "POST", { emoji });
+        await api("/matches/" + id + "/react", "POST", { emoji });
         reactionOpen = null;
         await refresh();
-        if (!removing && data.games.find(g => g.id === id)?.reactions[emoji]?.includes(data.user?.id)) {
+        if (!removing && data.matches.find(g => g.id === id)?.reactions[emoji]?.includes(data.user?.id)) {
           celebrateReaction(document.getElementById("post-" + id), emoji);
         }
       } finally { pendingReactions.delete(id); }
       break;
     }
     case "delete-comment":
-      await api("/games/" + id + "/comments", "DELETE", { id: el.dataset.id });
+      await api("/matches/" + id + "/comments", "DELETE", { id: el.dataset.id });
       await refresh();
       toast("Comment removed.");
       break;
@@ -773,7 +791,7 @@ async function action(el) {
       break;
     case "rematch":
       closeModal();
-      recordGame(el.dataset.opponent);
+      recordMatch(el.dataset.opponent);
       break;
   }
 }
@@ -813,7 +831,7 @@ document.addEventListener("submit", async (e) => {
           else toast("You’re in. Welcome back.");
         }
         break;
-      case "game":
+      case "match":
         for(const el of f.elements) if(!/^(m[0-2][ab]|winner[0-2])$/.test(el.name) && el.willValidate && !el.checkValidity()) {
           const section = el.closest('[hidden]');
           if (section) {
@@ -822,30 +840,30 @@ document.addEventListener("submit", async (e) => {
           }
           el.reportValidity();return;
         }
-        const matches=[...f.querySelectorAll("[data-match]")].filter(row=>!row.hidden).map(row=>readMatch(row));
+        const games=[...f.querySelectorAll("[data-game-index]")].filter(row=>!row.hidden).map(row=>readGame(row));
         for(const k of Object.keys(b)) if(/^(m[0-2][ab]|winner[0-2])$/.test(k)) delete b[k];
-        Object.assign(b,seriesScore(matches));
-        if (f.dataset.game) b.revision = Number(f.dataset.revision);
+        Object.assign(b,matchScore(games));
+        if (f.dataset.matchId) b.revision = Number(f.dataset.revision);
         const fingerprint = JSON.stringify(b);
         if (f.dataset.fingerprint !== fingerprint) {
           f.dataset.requestKey = crypto.randomUUID();
           f.dataset.fingerprint = fingerprint;
         }
         const result = await api(
-          f.dataset.game ? "/games/" + f.dataset.game : "/games",
-          f.dataset.game ? "PATCH" : "POST",
+          f.dataset.matchId ? "/matches/" + f.dataset.matchId : "/matches",
+          f.dataset.matchId ? "PATCH" : "POST",
           b,
           f.dataset.requestKey,
         );
         await refresh();
-        if (f.dataset.game) {
+        if (f.dataset.matchId) {
           closeModal();
           toast("Score corrected. History preserved.");
         } else {
-          const g = {id:result.id,player1:data.user.id,player2:b.opponent,score1:b.score1,score2:b.score2,matches:b.matches},
+          const g = {id:result.id,player1:data.user.id,player2:b.opponent,score1:b.score1,score2:b.score2,games:b.games},
             opp = player(g.player2);
           modal(
-            `<div class="success"><div class="success-ball">🏓</div><div class="eyebrow orange">IT’S ON THE BOARD</div><h2>Good game. Great receipt.</h2><p>${esc(first(data.user))} vs ${esc(first(opp))}</p><div class="result">${g.score1} : ${g.score2}</div>${matchScores(g)}<p>Your standings and the feed are up to date.</p><button class="btn primary full" data-action="share-game" data-game="${g.id}">${icon("share")} Share game</button><button class="btn soft full" style="margin-top:10px" data-action="rematch" data-opponent="${opp.id}">Record rematch</button><a href="#match/${g.id}" class="btn soft full" data-action="close">View game</a></div>`,
+            `<div class="success"><div class="success-ball">🏓</div><div class="eyebrow orange">IT’S ON THE BOARD</div><h2>Good match. Great receipt.</h2><p>${esc(first(data.user))} vs ${esc(first(opp))}</p><div class="result">${g.score1} : ${g.score2}</div>${gameScores(g)}<p>Your standings and the feed are up to date.</p><button class="btn primary full" data-action="share-match" data-match-id="${g.id}">${icon("share")} Share match</button><button class="btn soft full" style="margin-top:10px" data-action="rematch" data-opponent="${opp.id}">Record rematch</button><a href="#match/${g.id}" class="btn soft full" data-action="close">View match</a></div>`,
           );
         }
         break;
@@ -862,8 +880,8 @@ document.addEventListener("submit", async (e) => {
           f.dataset.requestKey = crypto.randomUUID();
           f.dataset.fingerprint = JSON.stringify(b);
         }
-        await api("/games/" + f.dataset.game + "/comments", "POST", b, f.dataset.requestKey);
-        commentsOpen.add(f.dataset.game);
+        await api("/matches/" + f.dataset.matchId + "/comments", "POST", b, f.dataset.requestKey);
+        commentsOpen.add(f.dataset.matchId);
         await refresh();
         toast("Added to the table talk.");
         break;
@@ -916,7 +934,7 @@ document.addEventListener("change", async (e) => {
   $("#photo-preview").innerHTML = avatar(profileDraft, "large");
 });
 document.addEventListener("change",e=>{
-  const f=e.target.closest('form[data-form="game"]');if(!f)return;
+  const f=e.target.closest('form[data-form="match"]');if(!f)return;
   if(e.target.name==='date')$('#record-date-label').textContent=e.target.value===today?'Today':e.target.value;
   if(e.target.name.startsWith('winner'))updateDecider(f);
 });
@@ -929,7 +947,7 @@ document.addEventListener("input", (e) => {
     });
     $('#opponent-empty').hidden = found > 0;
   }
-  if(e.target.closest('form[data-form="game"]') && /^m[0-2][ab]$/.test(e.target.name)) updateDecider(e.target.form);
+  if(e.target.closest('form[data-form="match"]') && /^m[0-2][ab]$/.test(e.target.name)) updateDecider(e.target.form);
   if(e.target.name === "text" && e.target.closest('[data-form="comment"]')) {
     const input=e.target, picker=input.closest("form").querySelector(".mention-picker");
     const match=/(?:^|\s)@([a-z0-9_]*)$/i.exec(input.value.slice(0,input.selectionStart));

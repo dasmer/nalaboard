@@ -1,0 +1,53 @@
+// One-shot rehearsal around the terminology migration on an isolated test project.
+// node --env-file=.env.local test/terminology-migration.mjs before|after
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync,unlinkSync} from 'node:fs';
+import {randomUUID,randomInt} from 'node:crypto';
+import {config,db,query} from '../server/config.mjs';
+const linked=JSON.parse(readFileSync(new URL('../.insforge/project.json',import.meta.url)));
+assert.ok(['nalaboard-test','nalaboard-series-test'].includes(linked.project_name));
+assert.equal(config.environment,'test');
+assert.equal((await query(db.database.from('nb_environment').select('environment')))[0].environment,'test');
+const file=new URL('../.insforge/terminology-fixture.json',import.meta.url),phase=process.argv[2];
+if(phase==='before') {
+  const prefix='migration'+Date.now().toString(36),players=[randomUUID(),randomUUID()],id=randomUUID(),event=randomUUID();
+  const day=new Date(Date.UTC(1900,0,1+randomInt(10000))).toISOString().slice(0,10);
+  const games=[{score1:11,score2:7},{type:'deuce',winner:1}],previous=[{score1:11,score2:9},{score1:11,score2:8}];
+  await query(db.database.from('nb_players').insert(players.map((id,i)=>({id,name:'Migration '+i,username:prefix+i,email:prefix+i+'@nala.money'}))));
+  await query(db.database.from('nb_games').insert([{id,player1:players[0],player2:players[1],matches:games,date:day,revision:2,notes:'Preserve the words games and matches.'}]));
+  await query(db.database.from('nb_comments').insert([{game_id:id,player_id:players[1],text:'games and matches are literal comment text'}]));
+  await query(db.database.from('nb_reactions').insert([{game_id:id,player_id:players[1],emoji:'👏'}]));
+  await query(db.database.from('nb_subscriptions').insert([{game_id:id,player_id:players[1],muted:true}]));
+  const before={score1:2,score2:0,matches:previous},after={score1:2,score2:0,matches:games};
+  await query(db.database.from('nb_activity').insert([{id:event,actor:players[0],game_id:id,action:'game.recorded',description:'Recorded a game',before_data:before,after_data:after}]));
+  await query(db.database.from('nb_outbox').insert([{event_id:event,recipient:players[1],subject:'A new game is on the board',leased_until:'2099-01-01T00:00:00Z',payload:{gameId:id,action:'game.corrected',before,after,text:'literal matches and games'}}]));
+  await query(db.database.from('nb_requests').insert([{player_id:players[0],key:prefix,fingerprint:'unchanged-request-fingerprint',response:{id}}]));
+  const match={id,player1:players[0],player2:players[1],score1:2,score2:0,matches:games};
+  await query(db.database.from('nb_weekly_runs').insert([{week_start:day,cutoff:day+'T17:00:00Z',snapshot:{players:[],games:[match]}}]));
+  await query(db.database.from('nb_daily_runs').insert([{day,cutoff:day+'T08:00:00Z',snapshot:{players:[],pairs:[],history:[{player1:players[0],player2:players[1],games:5}],yesterdayGames:[{id,score1:2,score2:0}]}}]));
+  writeFileSync(file,JSON.stringify({players,id,event,day,games,previous,prefix}),{mode:0o600});
+  console.log('Prepared old-schema fixtures for result, history, comments, reactions, subscriptions, outbox, requests, and frozen recaps.');
+} else if(phase==='after') {
+  const f=JSON.parse(readFileSync(file)),one=async(table,key,value)=>(await query(db.database.from(table).select('*').eq(key,value)))[0];
+  const result=await one('nb_matches','id',f.id);
+  assert.equal(result.id,f.id);assert.deepEqual(result.games,f.games);assert.equal(result.matches,undefined);
+  assert.deepEqual([result.score1,result.score2,result.revision],[2,0,2]);assert.equal(result.date,f.day);
+  assert.equal(result.notes,'Preserve the words games and matches.');
+  const comment=await one('nb_comments','match_id',f.id);assert.equal(comment.text,'games and matches are literal comment text');assert.equal(comment.game_id,undefined);
+  assert.equal((await one('nb_reactions','match_id',f.id)).emoji,'👏');
+  assert.equal((await one('nb_subscriptions','match_id',f.id)).muted,true);
+  const activity=await one('nb_activity','id',f.event);
+  assert.equal(activity.match_id,f.id);assert.equal(activity.action,'match.recorded');assert.equal(activity.description,'Recorded a match');
+  assert.deepEqual(activity.before_data,{score1:2,score2:0,games:f.previous});assert.deepEqual(activity.after_data,{score1:2,score2:0,games:f.games});
+  const email=await one('nb_outbox','event_id',f.event);
+  assert.equal(email.subject,'A new match is on the board');assert.deepEqual(email.payload,{matchId:f.id,action:'match.corrected',before:activity.before_data,after:activity.after_data,text:'literal matches and games'});
+  const weekly=(await one('nb_weekly_runs','week_start',f.day)).snapshot;
+  assert.equal(weekly.games,undefined);assert.deepEqual(weekly.matches,[{id:f.id,player1:f.players[0],player2:f.players[1],score1:2,score2:0,games:f.games}]);
+  const daily=(await one('nb_daily_runs','day',f.day)).snapshot;
+  assert.equal(daily.yesterdayGames,undefined);assert.deepEqual(daily.yesterdayMatches,[{id:f.id,score1:2,score2:0}]);
+  assert.deepEqual(daily.history,[{player1:f.players[0],player2:f.players[1],matches:5}]);
+  const request=await one('nb_requests','key',f.prefix);assert.equal(request.fingerprint,'unchanged-request-fingerprint');assert.deepEqual(request.response,{id:f.id});
+  for(const [table,key,value] of [['nb_outbox','event_id',f.event],['nb_activity','id',f.event],['nb_comments','match_id',f.id],['nb_reactions','match_id',f.id],['nb_subscriptions','match_id',f.id],['nb_requests','key',f.prefix],['nb_weekly_runs','week_start',f.day],['nb_daily_runs','day',f.day],['nb_matches','id',f.id]])await query(db.database.from(table).delete().eq(key,value));
+  await query(db.database.from('nb_players').delete().in('id',f.players));unlinkSync(file);
+  console.log('Migration preservation checks passed; isolated fixtures removed.');
+} else throw new Error('Choose before or after.');

@@ -10,12 +10,12 @@ globalThis.fetch=async(url,options)=>{
 };
 const {db}=await import('../server/config.mjs');
 const {sendOtp,deliverOutbox}=await import('../server/email.mjs');
-const after={score1:2,score2:0,matches:[{score1:11,score2:7},{score1:11,score2:9}]};
+const after={score1:2,score2:0,games:[{score1:11,score2:7},{score1:11,score2:9}]};
 const rows=[
-  {id:'game-email',payload:{action:'game.recorded',gameId:'game',actor:'a',after}},
-  {id:'comment-email',payload:{action:'comment.added',gameId:'game',actor:'a',text:'Nice game!',after}},
+  {id:'game-email',payload:{action:'match.recorded',matchId:'game',actor:'a',after}},
+  {id:'comment-email',payload:{action:'comment.added',matchId:'game',actor:'a',text:'Nice game!',after}},
   {id:'agent-email',payload:{action:'agent.connected',actor:'b',label:'Codex'}},
-].map(r=>({...r,recipient:'b',subject:'Fixture subject',attempts:0}));
+].map(r=>({...r,recipient:'b',subject:'A new match is on the board',attempts:0}));
 db.database.rpc=async()=>({data:rows,error:null});
 let gameLookups=0;const updates=[];
 db.database.from=table=>{
@@ -23,7 +23,7 @@ db.database.from=table=>{
   const chain={select(){return this},eq(){return this},in(key,value){ids=value;return this},limit(){return this},
     update(value){update=value;return this},then(resolve,reject){
       let data;
-      if(table==='nb_games'){gameLookups++;data=[{player1:'a',player2:'b'}];}
+      if(table==='nb_matches'){gameLookups++;data=[{player1:'a',player2:'b'}];}
       else if(table==='nb_players')data=[{id:'a',name:'Alex',email:'a@example.test'},{id:'b',name:'Jordan',email:'b@example.test'}].filter(p=>ids.includes(p.id));
       else {assert.equal(table,'nb_outbox');updates.push(update);data=[];}
       return Promise.resolve({data,error:null}).then(resolve,reject);

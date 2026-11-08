@@ -311,8 +311,8 @@ svg {
   color: var(--green);
   margin-bottom: 10px;
 }
-.page-heading:has(.game-actions) { flex-wrap: wrap; }
-.game-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.page-heading:has(.match-actions) { flex-wrap: wrap; }
+.match-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 .page-heading p {
   margin-top: 9px;
   color: var(--muted);
@@ -2123,15 +2123,15 @@ select {
 .mention-picker small { display:block; color:var(--muted); }
 .post-actions { flex-wrap:wrap; }
 
-.match-scores{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 4px;color:var(--muted)}
-.match-scores span{display:grid;gap:4px;text-align:center;padding:8px 12px;border:1px solid #d8e5ee;border-radius:10px}
-.match-scores small{font-size:9px;letter-spacing:1px}.match-scores strong{font-size:15px;color:#242b22}
-.series-match{border:0;border-top:1px solid #d8e5ee;padding:2px 0 0;margin:6px 0}.series-match legend{font-size:12px;font-weight:700;padding-right:12px}.series-match[hidden]{display:none}.series-match .score-inputs{margin:4px 0;padding:8px}.series-match .score-inputs label{margin-bottom:4px}.series-match .score-inputs input{height:44px;font-size:32px}
-form[data-form="game"]>label{margin-top:12px}form[data-form="game"] textarea{min-height:64px}form[data-form="game"] .form-footer{margin-top:16px}
-.match-hero .match-scores,.success .match-scores{justify-content:center}
-form[data-form="game"] .series-status{margin:6px 0}
+.game-scores{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 4px;color:var(--muted)}
+.game-scores span{display:grid;gap:4px;text-align:center;padding:8px 12px;border:1px solid #d8e5ee;border-radius:10px}
+.game-scores small{font-size:9px;letter-spacing:1px}.game-scores strong{font-size:15px;color:#242b22}
+.series-game{border:0;border-top:1px solid #d8e5ee;padding:2px 0 0;margin:6px 0}.series-game legend{font-size:12px;font-weight:700;padding-right:12px}.series-game[hidden]{display:none}.series-game .score-inputs{margin:4px 0;padding:8px}.series-game .score-inputs label{margin-bottom:4px}.series-game .score-inputs input{height:44px;font-size:32px}
+form[data-form="match"]>label{margin-top:12px}form[data-form="match"] textarea{min-height:64px}form[data-form="match"] .form-footer{margin-top:16px}
+.match-hero .game-scores,.success .game-scores{justify-content:center}
+form[data-form="match"] .series-status{margin:6px 0}
 
-.score-options{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}.score-options button{padding:8px 11px;border:1px solid #e3e3d9;border-radius:9px;background:#f5f5ef;color:#00658a;font-size:12px;font-weight:600}.score-options button:hover{background:#eaf7fc;border-color:#93aa9a}.result-tag{display:inline-block;background:#eaf7fc;color:#00658a;padding:5px 9px;border-radius:6px;font-size:11px;margin:8px 0}.result-tag.deuce{background:#fff0e6;color:#b04a24}.match-winners{display:flex;gap:10px;margin:10px 0}.match-winners label{position:relative;flex:1;margin:0!important;cursor:pointer}.match-winners input{position:absolute;opacity:0;width:1px;height:1px}.match-winners span{display:block;text-align:center;padding:12px;border:1px solid #d8e5ee;border-radius:10px;font-size:13px}.match-winners input:checked+span{border-color:#00658a;background:#eaf7fc;color:#365344;box-shadow:inset 0 0 0 1px #00658a}.match-winners input:checked+span:before{content:'✓ '}.match-winners input:focus-visible+span{outline:2px solid #007fae;outline-offset:2px}.match-error{background:#fff0e6;padding:12px;border-radius:8px;color:#a34428;font-size:12px;margin:10px 0}.match-error[hidden]{display:none}.match-error button{display:block;margin-top:8px}
+.score-options{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}.score-options button{padding:8px 11px;border:1px solid #e3e3d9;border-radius:9px;background:#f5f5ef;color:#00658a;font-size:12px;font-weight:600}.score-options button:hover{background:#eaf7fc;border-color:#93aa9a}.result-tag{display:inline-block;background:#eaf7fc;color:#00658a;padding:5px 9px;border-radius:6px;font-size:11px;margin:8px 0}.result-tag.deuce{background:#fff0e6;color:#b04a24}.game-winners{display:flex;gap:10px;margin:10px 0}.game-winners label{position:relative;flex:1;margin:0!important;cursor:pointer}.game-winners input{position:absolute;opacity:0;width:1px;height:1px}.game-winners span{display:block;text-align:center;padding:12px;border:1px solid #d8e5ee;border-radius:10px;font-size:13px}.game-winners input:checked+span{border-color:#00658a;background:#eaf7fc;color:#365344;box-shadow:inset 0 0 0 1px #00658a}.game-winners input:checked+span:before{content:'✓ '}.game-winners input:focus-visible+span{outline:2px solid #007fae;outline-offset:2px}.game-error{background:#fff0e6;padding:12px;border-radius:8px;color:#a34428;font-size:12px;margin:10px 0}.game-error[hidden]{display:none}.game-error button{display:block;margin-top:8px}
 
 /* Record flow: only the body scrolls; the submit action stays in view. */
 .record-overlay { bottom:auto; padding:20px; }
@@ -2149,8 +2149,8 @@ form[data-form="game"] .series-status{margin:6px 0}
 .record-matchup { display:flex; align-items:center; gap:9px; padding-bottom:17px; font-size:13px; }
 .record-matchup>span { font-size:11px; color:var(--muted); }
 .record-matchup .quiet-link { margin-left:auto; font-size:12px; }
-.record-dialog .series-match { border:1px solid var(--line); border-radius:12px; padding:13px; margin:0 0 12px; background:#f8f7f1; }
-.record-dialog .series-match legend { padding:0 5px; }
+.record-dialog .series-game { border:1px solid var(--line); border-radius:12px; padding:13px; margin:0 0 12px; background:#f8f7f1; }
+.record-dialog .series-game legend { padding:0 5px; }
 .record-dialog .score-inputs { padding:0; margin:0; background:none; }
 .record-dialog .score-inputs label { margin:0 0 5px; font-size:10px; }
 .record-dialog .score-inputs input { height:50px; background:white; font-size:27px; appearance:textfield; }
@@ -2158,9 +2158,9 @@ form[data-form="game"] .series-status{margin:6px 0}
 .record-dialog .score-options { gap:16px; margin:9px 0 0; }
 .record-dialog .score-options button { padding:0; background:none; border:0; font-size:10px; }
 .record-dialog .score-options button:hover { text-decoration:underline; }
-.record-dialog .match-winners { margin:8px 0; }
+.record-dialog .game-winners { margin:8px 0; }
 .record-dialog .result-tag { margin:0 0 8px; }
-.record-dialog .series-match .field-hint { margin:0 0 8px; }
+.record-dialog .series-game .field-hint { margin:0 0 8px; }
 .record-extras { display:flex; flex-wrap:wrap; gap:24px; margin:18px 0 8px; }
 .record-extras button { display:flex; align-items:center; gap:5px; font-size:12px; }
 .record-extras svg { width:13px; height:13px; }
@@ -2278,3 +2278,8 @@ h3, .section-title h3 { font-size: 20px; }
 .sidebar .brand-image { filter: url(#sidebar-logo-colors); }
 .mobile-brand { width: 168px; flex-shrink: 0; gap: 0; }
 @media (max-width: 360px) { .mobile-brand { width: 148px; } }
+
+.single-game-choice { margin:0 0 12px; }
+.single-game-choice:has(button[hidden]) { display:none; }
+.single-game-summary { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:13px; margin-bottom:12px; border-radius:12px; background:var(--paper); }
+.single-game-summary[hidden] { display:none; }

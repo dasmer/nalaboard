@@ -30,8 +30,8 @@ export async function deliverOutbox(eventId=null) {
     const weeklySnapshots=new Map();
     for (const item of rows) {
       try {
-        const game=item.payload.action.startsWith('game.') ? (await query(db.database.from('nb_games').select('player1,player2').eq('id',item.payload.gameId).limit(1)))[0] : null;
-        const ids=[...new Set([item.recipient,item.payload.actor,game?.player1,game?.player2].filter(Boolean))];
+        const matchResult=item.payload.action.startsWith('match.') ? (await query(db.database.from('nb_matches').select('player1,player2').eq('id',item.payload.matchId).limit(1)))[0] : null;
+        const ids=[...new Set([item.recipient,item.payload.actor,matchResult?.player1,matchResult?.player2].filter(Boolean))];
         const people=await query(db.database.from('nb_players').select('id,email,name,weekly_recap,daily_matchups').in('id',ids).limit(ids.length));
         const recipient=people.find(p=>p.id===item.recipient), actor=people.find(p=>p.id===item.payload.actor);
         if (!recipient) throw new Error('Recipient not found.');
@@ -59,7 +59,7 @@ export async function deliverOutbox(eventId=null) {
           }
           template=weeklyEmail({snapshot:weeklySnapshots.get(week),recipientId:recipient.id,origin:config.origin,key:config.otpSecret});
         } else template=activityEmail({origin:config.origin,payload:item.payload,actorName:actor?.name || 'A player',recipientId:recipient.id,
-          player1Name:people.find(p=>p.id===game?.player1)?.name,player2Name:people.find(p=>p.id===game?.player2)?.name});
+          player1Name:people.find(p=>p.id===matchResult?.player1)?.name,player2Name:people.find(p=>p.id===matchResult?.player2)?.name});
         await sendEmail({to:recipient.email,subject:template.subject || item.subject,...template,key:`nb-${item.id}`});
         await query(db.database.from('nb_outbox').update({sent_at:new Date().toISOString(),leased_until:null,last_error:null}).eq('id',item.id));
       } catch {
