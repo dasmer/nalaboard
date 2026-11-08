@@ -1,3 +1,4 @@
+import {displayAPI,isDisplayAdmin} from './server/displays.mjs';
 import {weeklyTokenPlayer} from './server/weekly-recap.mjs';
 import {dailyTokenPlayer} from './server/daily-matchups.mjs';
 import http from 'node:http';
@@ -12,7 +13,7 @@ import {deliverOutbox,queueWeeklyRecap,queueDailyMatchups} from './server/email.
 import {matchShareURL,serveMatchShare} from './match-share.mjs';
 import {checkProxy,clientIp} from './server/proxy.mjs';
 const root=resolve('.');
-const allowed=new Set(['/index.html','/client.js','/client.css','/favicon.svg','/brand-logo.png','/brand-icon.png','/apple-touch-icon.png','/og-card.png','/agent.md','/series.mjs']);
+const allowed=new Set(['/index.html','/client.js','/client.css','/favicon.svg','/brand-logo.png','/brand-icon.png','/apple-touch-icon.png','/og-card.png','/agent.md','/series.mjs','/display-client.mjs','/bigscreen.html','/bigscreen.js','/bigscreen.css','/activate.html','/activate.js','/rafiki-logo.svg']);
 const mime={'.mjs':'text/javascript; charset=utf-8','.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.jpg':'image/jpeg','.png':'image/png','.md':'text/markdown; charset=utf-8'};
 async function jsonBody(req) {
   const chunks=[];let size=0;
@@ -39,6 +40,7 @@ function checkOrigin(req) {
 async function api(req,res,url) {
   checkOrigin(req);
   const body=await jsonBody(req), path=url.pathname.slice('/api/v1'.length);
+  if(path.startsWith('/display/')||path==='/displays'||path.startsWith('/displays/'))return displayAPI(req,res,path,body,url,clientIp(req,config.trustProxy));
   if(req.method==='POST' && path==='/auth/request') {
     return requestCode(body,clientIp(req,config.trustProxy));
   }
@@ -59,7 +61,7 @@ async function api(req,res,url) {
         cursors[kind]=cursor;
       }
     }
-    return state(who,matchId,cursors,player);
+    return {...await state(who,matchId,cursors,player),displayAdmin:await isDisplayAdmin(who)};
   }
   if(['/weekly-preference','/daily-preference'].includes(path) && ['GET','POST'].includes(req.method)) {
     const daily=path==='/daily-preference',field=daily?'daily_matchups':'weekly_recap';
@@ -164,6 +166,8 @@ http.createServer(async(req,res)=>{
     }
     let path=url.pathname;
     if(path==='/') path='/index.html';
+    if(path==='/bigscreen')path='/bigscreen.html';
+    if(path==='/activate')path='/activate.html';
     if(!allowed.has(path)) throw error('Not found.',404);
     const bytes=await readFile(resolve(root,path==='/agent.md'?'skills/nalaboard/SKILL.md':'.'+path)).catch(()=>{throw error('Not found.',404);});
     res.setHeader('Content-Type',mime[extname(path)] || 'application/octet-stream');res.end(bytes);

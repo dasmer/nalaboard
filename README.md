@@ -4,7 +4,7 @@ Good colleagues. Great rivals. The Nala team’s table tennis clubhouse in Canar
 
 Public match feeds, player cards, standings, rivalries, comments with @mentions, reactions, correction history, shareable match receipts, and personal agent connections. Sign in with an exact **@nala.money**, **@rafiki.com**, or **@useallowance.com** address. Other domains, including @nala.com, cannot join.
 
-A **game** is played to 11; a **match** is the overall result. Matches default to best of three games: first to win two games wins the match. If you only played one game, choose **Only played one game?** below Game 1. Record exact scores from 11–0 through 11–9, choose a deuce winner, or record who won when the score is forgotten. Either format counts as one match win/loss. Standings count match wins, then fewest losses; equal records share a rank. Participants can correct results with revision checks and a preserved paper trail. Players join themselves; there is no administrator role or imported roster.
+A **game** is played to 11; a **match** is the overall result. Matches default to best of three games: first to win two games wins the match. If you only played one game, choose **Only played one game?** below Game 1. Record exact scores from 11–0 through 11–9, choose a deuce winner, or record who won when the score is forgotten. Either format counts as one match win/loss. Standings count match wins, then fewest losses; equal records share a rank. Participants can correct results with revision checks and a preserved paper trail. Players join themselves; there is no imported roster. Display admins have only the office-display permissions described below.
 
 ## Local development
 
@@ -104,3 +104,21 @@ For a future Nala handover, transfer the GitHub repository and InsForge project,
 - Resend: `Nalaboard <info@nalaboard.com>`, Ireland region, dedicated sending key restricted to `nalaboard.com`. The key remains server-only.
 - DNS: apex A `216.150.16.1`; www CNAME `9764b2d95437e210.vercel-dns-016.com`; `rsend` CNAME `rsend-euw1.forge.rmta.net`; `send` CNAME `send.forge.rmta.net`; provider-generated DKIM TXT at `resend._domainkey`. The existing apex email forwarding MX/SPF were preserved.
 - Production launched empty. The email smoke check requested a code for the owner; it did not create a player or invent results. No message was sent to the Nala pilot.
+
+## Office big screen
+
+Open `/bigscreen` on the shared office laptop or iPad. An admin scans the QR code or enters the display code at `/activate`, then approves. Remote approval preserves the admin's personal login. **Activate on this computer** verifies email without creating a personal session. The regular activation page also detects its own display browser and clears/revokes that browser's personal session after approval.
+
+The first display admins are the existing account IDs for `@benjaminf7` and `@susannabae_80a68f30`. The migration binds permissions to those IDs, not mutable usernames; absent accounts in isolated test projects receive no automatic grant. Admins can activate and disconnect displays at `/activate#displays` (also linked from their account menu). No other admin powers are added.
+
+Display sessions use a separate HttpOnly cookie and expire after 90 days of inactivity. Five-minute pairing codes are single-use, rate-limited and stored as hashes; the QR contains only the short pairing code, never a display credential. Display credentials can only record completed matches. History identifies these as recorded on the office display. Participants use their normal accounts for corrections.
+
+The board shows this week's standings and today's results using London dates. Shared entry selects both existing players, then a winner and the other player's points for each game. Best of three stays the default; single-game matches require an explicit action. Deuce and forgotten-score controls live inside the same player's panel. Idle entry returns to the board after a warning.
+
+A three-second poll reads a transactional board revision. Unchanged polls omit roster/standings payloads. Committed match inserts receive an ordered display sequence, so results recorded from phones, agents, personal computers and shared displays enter one celebration queue; corrections update the board without replaying wins. First load establishes a baseline, short reconnects recover recent wins, and long outages do not replay history. Celebrations defer during score entry, re-read corrected results before display, remain silent, and respect reduced motion. Fullscreen and screen wake lock are offered where supported; configure the laptop's sleep settings separately.
+
+Apply both `office-displays` and `display-updates` migrations before deploying the matching server. If production has not yet received PR #7, its terminology migrations and coordinated schema/server cutover must be completed as part of the release. They are additive except for replacing the match transaction to recognize the restricted display credential; existing personal API contracts are retained. The transactional revision row briefly serializes match/profile writes for consistent display snapshots. Only the isolated test project was migrated during development.
+
+Validation: `npm test`, the existing backend suites, and `npm run test:display-integration` against an isolated test server. Display fixtures must remain in `nalaboard-test` or `nalaboard-series-test`; test delivery is disabled. Real inbox delivery and physical office TV/iPad testing are separate acceptance checks.
+
+Brand assets: Nalaboard's existing paddle logo is retained. `rafiki-logo.svg` combines the original symbol and wordmark SVG paths from the [official Rafiki website](https://www.rafiki.com/) header; it has no scripts or external references. Motion uses CSS and browser animation APIs; `qrcode` is the only new dependency and runs on the server.

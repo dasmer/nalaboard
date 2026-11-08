@@ -4,7 +4,7 @@ import {sendOtp} from './email.mjs';
 export const hash=(s)=>createHash('sha256').update(s).digest('hex');
 export const secret=()=>randomBytes(32).toString('base64url');
 export const error=(message,status=400)=>Object.assign(new Error(message),{status});
-const otpHash=(email,code)=>{
+export const otpHash=(email,code)=>{
   if (!config.otpSecret) throw error('OTP_SECRET is not configured.',503);
   return createHmac('sha256',config.otpSecret).update(email+':'+code).digest('hex');
 };

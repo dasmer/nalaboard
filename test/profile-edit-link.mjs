@@ -71,3 +71,14 @@ for(const isNew of [false,true]) {
   assert.equal(normal.nodes['#modal-root'].innerHTML.includes('Join the roster'),isNew);
 }
 console.log('Profile edit links: signed-in, returning/new sign-in, save, close, and normal onboarding passed.');
+
+for(const signedIn of [false,true]) {
+ const record=session({hash:'#record-match',signedIn});
+ record.run('recordMatch=()=>{document.querySelector("#modal-root").innerHTML="RECORD_MATCH_OPEN"}');
+ await record.refresh();
+ if(!signedIn){assert.match(record.nodes['#modal-root'].innerHTML,/Work email/);await record.submit('otp',{code:'123456'});}
+ assert.equal(record.location.hash,'#feed');
+ assert.equal(record.nodes['#modal-root'].innerHTML,'RECORD_MATCH_OPEN','QR recording resumes after sign-in');
+ record.run('closeModal()');await record.refresh();assert.equal(record.nodes['#modal-root'].innerHTML,'');
+}
+console.log('QR recording links: signed-in and post-login destinations passed.');
