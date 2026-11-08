@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import {createHmac} from 'node:crypto';
 import sharp from 'sharp';
-import {gameShareURL,publicReceipt,serveGameShare} from '../game-share.mjs';
+import {gameShareURL,publicReceipt,serveGameShare,gameCard} from '../game-share.mjs';
 const key='fixture-sharing-secret',game={id:'test-game',player1:'a',player2:'b',score1:2,score2:1,date:'2026-10-08',revision:1,
   matches:[{score1:11,score2:7},{score1:9,score2:11},{type:'deuce',winner:1}],notes:'PRIVATE NOTES',history:['PRIVATE HISTORY'],comments:['PRIVATE COMMENT']};
 const players=[{id:'a',name:'Alex <script>alert(1)</script>',email:'PRIVATE EMAIL',image:'PRIVATE PHOTO'},{id:'b',name:'Jordan'}];
@@ -29,6 +29,17 @@ try {
   const metadata=await sharp(Buffer.from(await pngResponse.arrayBuffer())).metadata();assert.equal(metadata.width,1200);assert.equal(metadata.height,630);
   assert.equal((await fetch(url,{method:'HEAD'})).status,200);
   game.revision=2;assert.ok((await (await fetch(url)).text()).includes('/image.png?v=2'));
+  assert.ok(html.includes('Best of three'));
+  game.matches=[{score1:11,score2:7}];game.score1=1;game.score2=0;game.revision=3;
+  const singleHTML=await (await fetch(url)).text();
+  assert.ok(singleHTML.includes('Single game'));
+  assert.ok(!singleHTML.includes('Best of three'));
+  assert.ok(singleHTML.includes('1 : 0'));
+  assert.ok(singleHTML.includes('/image.png?v=3'));
+  // The format must also change in the rendered image, not only its HTML metadata.
+  const singleCard=await gameCard(publicReceipt(game,players));
+  game.matches.push({score1:11,score2:9});
+  assert.notDeepEqual(singleCard,await gameCard(publicReceipt(game,players)));
   const missing=gameShareURL({origin,id:'missing-game',key});assert.equal((await fetch(missing)).status,404);
   assert.throws(()=>gameShareURL({origin,id:game.id}),/signing secret/);
 } finally {await new Promise(resolve=>server.close(resolve));}

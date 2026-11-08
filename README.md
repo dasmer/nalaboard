@@ -4,7 +4,7 @@ Good colleagues. Great rivals. The Nala team’s table tennis clubhouse in Canar
 
 Public game feeds, player cards, standings, rivalries, comments with @mentions, reactions, correction history, shareable game receipts, and personal agent connections. Sign in with an exact **@nala.money**, **@rafiki.com**, or **@useallowance.com** address. Other domains, including @nala.com, cannot join.
 
-Games are best of three matches, played to 11. Record exact scores from 11–0 through 11–9, choose a deuce winner, or record who won when the score is forgotten. Two match wins finish the game. Standings count game wins, then fewest losses; equal records share a rank. Participants can correct results with revision checks and a preserved paper trail. Players join themselves; there is no administrator role or imported roster.
+Games default to best of three matches, played to 11. If you only played one, choose **Only played one game?** beside Match 2 after entering the first result. Record exact scores from 11–0 through 11–9, choose a deuce winner, or record who won when the score is forgotten. Two match wins finish best of three; one finishes a single game. Either format counts as one win/loss. Standings count game wins, then fewest losses; equal records share a rank. Participants can correct results with revision checks and a preserved paper trail. Players join themselves; there is no administrator role or imported roster.
 
 ## Local development
 

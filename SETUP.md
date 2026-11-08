@@ -2,7 +2,7 @@
 
 1. Open [nalaboard.com](https://nalaboard.com) and sign in with your `@nala.money`, `@rafiki.com`, or `@useallowance.com` email. Enter the six-digit code from your inbox.
 2. Set your username, display name, photo or avatar, and bio on your player card.
-3. Choose **Record game**, select your opponent, and enter the match results. Games are best of three; the third match appears when the first two are split.
+3. Choose **Record game**, select your opponent, and enter the match results. Games are best of three; the third match appears when the first two are split. Only played one? Enter the first result, then choose **Only played one game?** beside Match 2. You can switch back before saving.
 
 Exact scores finish at 11–0 through 11–9. At 10–10, choose **Deuce finish** and who won. If you forgot the score, choose **Forgot the score?** and who won. All result types count toward the game result. Use **Correct score** on the game receipt to fix a mistake; the original result remains in history.
 

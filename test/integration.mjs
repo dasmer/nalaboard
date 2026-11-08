@@ -51,7 +51,7 @@ for (const domain of ['nala.com','getburnt.ai','sub.nala.money','nala.money.evil
 }
 const body={opponent:b.user.id,matches:[{score1:11,score2:7},{score1:11,score2:9}],date:'2026-10-08',notes:'Integration test'};
 const win=body.matches[0],loss={score1:9,score2:11},deuce={type:'deuce',winner:1};
-for(const matches of [undefined,[],[win],[win,loss],[win,win,loss],[loss,loss,win],
+for(const matches of [undefined,[],[win,loss],[win,win,loss],[loss,loss,win],
   [win,{score1:11,score2:10}],[win,{score1:13,score2:10}],[win,null]]) {
   check((await call('/games','POST',{...body,matches},a.auth)).status,400,'Reject invalid or unfinished series');
   if(matches!==undefined) {
@@ -59,7 +59,7 @@ for(const matches of [undefined,[],[win],[win,loss],[win,win,loss],[loss,loss,wi
     check(Boolean(direct.error),true,'Database independently rejects invalid series');
   }
 }
-for(const matches of [[win,win],[loss,loss],[win,loss,deuce],[loss,win,loss]]) {
+for(const matches of [[win],[loss],[deuce],[{type:'unrecorded',winner:2}],[win,win],[loss,loss],[win,loss,deuce],[loss,win,loss]]) {
   check(await rpc('nb_series_wins',{matches,side:1}),matches.filter(m=>matchWinner(m)===1).length,'SQL series validator agrees with match winners');
 }
 const key=randomUUID();
@@ -106,6 +106,30 @@ check(seriesState.standings.all.find(p=>p.id===a.user.id).wins,1,'A three-match 
 check('points' in seriesState.standings.all.find(p=>p.id===a.user.id),false,'Incomplete point totals are not ranked');
 const scoreEmail=(await query(db.database.from('nb_outbox').select('payload').eq('payload->>gameId',id).eq('payload->>action','game.corrected').order('created_at',{ascending:false}).limit(1)))[0];
 check(scoreEmail.payload.after.matches,[win,loss,deuce],'Notification preserves all match scores');
+// A single match is a completed result, with the same participant/history safeguards.
+const singleKey=randomUUID();
+const single=await call('/games','POST',{...body,matches:[loss]},a.auth,singleKey);
+check(single.status,200,'Single games can be recorded');
+check((await call('/games','POST',{...body,matches:[loss]},a.auth,singleKey)).value.id,single.value.id,'Single-game retries are idempotent');
+let singleState=(await call('/state?game='+single.value.id,'GET',undefined,a.auth)).value;
+let singleGame=singleState.games.find(g=>g.id===single.value.id);
+check([singleGame.score1,singleGame.score2],[0,1]);check(singleGame.matches,[loss]);
+check(singleState.standings.all.find(p=>p.id===b.user.id).wins,1,'A single game counts as one win');
+check(singleState.standings.all.find(p=>p.id===a.user.id).losses,1,'A single game counts as one loss');
+check((await call('/games/'+single.value.id,'PATCH',{matches:[win],revision:1},c.auth)).status,403,'Single-game corrections require participation');
+check((await call('/games/'+single.value.id,'PATCH',{matches:[win,win],revision:1},b.auth)).status,200,'Player 2 can change a single game to best of three');
+check((await call('/games/'+single.value.id,'PATCH',{matches:[deuce],revision:2},b.auth)).status,200,'Player 2 can change best of three to a single deuce game');
+singleGame=(await call('/state?game='+single.value.id)).value.games.find(g=>g.id===single.value.id);
+check([singleGame.score1,singleGame.score2],[1,0]);check(singleGame.revision,3);
+check(singleGame.history.length,3,'Format corrections retain all revisions');
+check(singleGame.history[0].before.matches,[win,win],'History preserves the previous format');
+check((await call('/games/'+single.value.id,'PATCH',{matches:[loss],revision:2},a.auth)).status,409,'Single-game corrections enforce revisions');
+const singleShared=(await call('/games/'+single.value.id+'/share','GET',undefined,b.auth)).value.url;
+const singleReceipt=await (await fetch(singleShared)).text();
+check(singleReceipt.includes('Single game'),true,'Shared receipts show the single-game format');
+check(singleReceipt.includes('Best of three'),false);
+const singleNotification=(await query(db.database.from('nb_outbox').select('payload').eq('payload->>gameId',single.value.id).eq('payload->>action','game.corrected').order('created_at',{ascending:false}).limit(1)))[0];
+check(singleNotification.payload.after.matches,[deuce],'Notifications preserve the single-game result');
 await call('/me','PATCH',{username:prefix+'c',name:'Mention test C'},c.auth);
 const comment=await call('/games/'+id+'/comments','POST',{text:`Hello @${prefix}c`,mentions:[c.user.id]},a.auth);check(comment.status,200);
 let mail=await query(db.database.from('nb_outbox').select('recipient,payload').eq('payload->>gameId',id).limit(20));
@@ -176,19 +200,19 @@ check(page1.games.length,100);
 check(page1.games[0].date,'2026-10-08','Recently recorded older games must not jump ahead');
 const nextPage=await call('/state?player='+a.user.id+'&gamesBefore='+encodeURIComponent(page1.pagination.games),'GET',undefined,a.auth);check(nextPage.status,200);
 const page2=nextPage.value;
-check(page2.games.length,7,'Same-timestamp pagination must not lose games');
+check(page2.games.length,8,'Same-timestamp pagination must not lose games');
 const publicPage=(await call('/state?player='+a.user.id)).value;
 check(publicPage.games.length,100,'Public profile pagination is bounded');
-check((await call('/state?player='+a.user.id+'&gamesBefore='+encodeURIComponent(publicPage.pagination.games))).value.games.length,7,'Public pagination preserves all games');
-check(new Set([...page1.games,...page2.games].map(g=>g.id)).size,107);
+check((await call('/state?player='+a.user.id+'&gamesBefore='+encodeURIComponent(publicPage.pagination.games))).value.games.length,8,'Public pagination preserves all games');
+check(new Set([...page1.games,...page2.games].map(g=>g.id)).size,108);
 const allGames=[...page1.games,...page2.games];
 check(allGames.filter(g=>g.date==='2026-10-08').slice(0,102).every(g=>g.notes.startsWith('Pagination fixture ')),true,'Same-day ties put newly recorded games first');
 const feed=(await call('/state')).value.games;
 check(feed.map(g=>g.date),feed.map(g=>g.date).sort().reverse(),'The unfiltered public feed also follows played dates');
 check(allGames.map(g=>g.date),allGames.map(g=>g.date).sort().reverse(),'Played dates descend across page boundaries');
 check(allGames.filter(g=>g.notes.startsWith('Pagination fixture ')).slice(-3).every(g=>g.date==='2026-10-07'),true,'Backdated entries remain last despite newer recording time');
-check(page1.standings.all.find(p=>p.id===a.user.id).played,107,'Standings include games beyond the first page');
-check(page1.rivalries.find(r=>r.id===a.user.id && r.opponent===b.user.id).played,107);
+check(page1.standings.all.find(p=>p.id===a.user.id).played,108,'Standings include games beyond the first page');
+check(page1.rivalries.find(r=>r.id===a.user.id && r.opponent===b.user.id).played,108);
 check((await call('/state?gamesBefore=invalid','GET',undefined,a.auth)).status,400);
 const image='data:image/png;base64,'+(await sharp({create:{width:8,height:8,channels:3,background:'#00a2dc'}}).png().toBuffer()).toString('base64');
 check((await call('/me','PATCH',{image},a.auth)).status,200,'Photo is decoded and stored in private InsForge storage');

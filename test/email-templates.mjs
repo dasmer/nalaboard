@@ -32,3 +32,12 @@ console.log('Email template checks passed: leading-zero code, escaping, multilin
 const mixedMail=activityEmail({origin,payload:{action:'game.recorded',gameId:'fixture',after},actorName:'Alex',player1Name:'Alex',player2Name:'Jordan'});
 assert.ok(mixedMail.html.includes('Score not recorded') && mixedMail.text.includes('Jordan won'));
 assert.ok(!mixedMail.html.includes('undefined') && !mixedMail.text.includes('NaN'));
+
+const single={score1:1,score2:0,matches:[{score1:11,score2:7}]};
+for(const payload of [{action:'game.recorded',gameId,after:single},{action:'game.corrected',gameId,after:single,before:after}]) {
+  const email=activityEmail({...base,payload});
+  assert.ok(email.html.includes('SINGLE GAME'));
+  assert.ok(!email.html.includes('BEST OF THREE'));
+  assert.ok(email.text.includes('1–0 (11–7)'));
+  if(!payload.before)assert.ok(email.text.includes('recorded a single game:'));
+}

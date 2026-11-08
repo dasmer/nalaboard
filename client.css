@@ -2278,3 +2278,8 @@ h3, .section-title h3 { font-size: 20px; }
 .sidebar .brand-image { filter: url(#sidebar-logo-colors); }
 .mobile-brand { width: 168px; flex-shrink: 0; gap: 0; }
 @media (max-width: 360px) { .mobile-brand { width: 148px; } }
+
+.single-game-choice { text-align:right; }
+.single-game-choice:has(button[hidden]) { display:none; }
+.single-game-summary { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:13px; margin-bottom:12px; border-radius:12px; background:var(--paper); }
+.single-game-summary[hidden] { display:none; }

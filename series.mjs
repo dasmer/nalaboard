@@ -4,9 +4,10 @@ export function matchLabel(m,names=['Player 1','Player 2']) {
   if(m.type==='unrecorded')return `${names[m.winner-1]} won · Score not recorded`;
   return `${m.score1}–${m.score2}`;
 }
+export const seriesFormat = matches => matches.length === 1 ? 'Single game' : 'Best of three';
 export function seriesScore(matches) {
   const fail = message => { throw Object.assign(new Error(message), {status:400}); };
-  if (!Array.isArray(matches) || matches.length < 2 || matches.length > 3) fail('Record two or three matches for a best-of-three game.');
+  if (!Array.isArray(matches) || matches.length < 1 || matches.length > 3) fail('Record one match for a single game, or two or three for best of three.');
   let score1=0, score2=0;
   for (const [i,match] of matches.entries()) {
     if (score1===2 || score2===2) fail('The game ends after two match wins. Do not record another match.');
@@ -18,6 +19,6 @@ export function seriesScore(matches) {
     } else if(!['deuce','unrecorded'].includes(type)||![1,2].includes(match.winner)||match.score1!==undefined||match.score2!==undefined)fail(`Match ${i+1}: choose who won, without numerical scores.`);
     if (matchWinner(match)===1) score1++; else score2++;
   }
-  if (Math.max(score1,score2)!==2) fail('The game is not finished. Add the deciding match.');
+  if (Math.max(score1,score2)!==(matches.length===1?1:2)) fail('The game is not finished. Add the deciding match.');
   return {matches:matches.map(m=>m.type==='deuce'||m.type==='unrecorded'?{type:m.type,winner:m.winner}:{score1:m.score1,score2:m.score2}),score1,score2};
 }
