@@ -59,6 +59,7 @@ export async function deliverOutbox(eventId=null) {
           }
           template=weeklyEmail({snapshot:weeklySnapshots.get(week),recipientId:recipient.id,origin:config.origin,key:config.otpSecret});
         } else template=activityEmail({origin:config.origin,payload:item.payload,actorName:actor?.name || 'A player',recipientId:recipient.id,
+          player1Id:matchResult?.player1,player2Id:matchResult?.player2,
           player1Name:people.find(p=>p.id===matchResult?.player1)?.name,player2Name:people.find(p=>p.id===matchResult?.player2)?.name});
         await sendEmail({to:recipient.email,subject:template.subject || item.subject,...template,key:`nb-${item.id}`});
         await query(db.database.from('nb_outbox').update({sent_at:new Date().toISOString(),leased_until:null,last_error:null}).eq('id',item.id));

@@ -183,20 +183,33 @@ try {
   const receipt = (
     await call("/state?match=" + saved.value.id)
   ).value.matches.find((m) => m.id === saved.value.id);
-  check(receipt.history[0].text, "Recorded on the office display");
+  check(receipt.history[0].text, "Recorded on the office big screen");
   check(receipt.history[0].display, true, "History marks display provenance");
   const emails = await query(
     db.database
       .from("nb_outbox")
-      .select("recipient")
+      .select("recipient,payload")
       .eq("payload->>matchId", saved.value.id)
       .limit(5),
   );
-  check(
-    emails.some((e) => e.recipient === b.id),
-    true,
-    "Existing participant notification is queued",
-  );
+  check(emails.map(e => e.recipient).sort(), [...ids].sort(), "Both participants get exactly one email, including the recorder and after a retry");
+  check(emails.every(e => e.payload.display === true && e.payload.actor === a.id), true, "Email provenance identifies the selected recorder");
+  check(receipt.history[0].actor, a.id, "Match history identifies the selected recorder");
+  const activity = (await call("/state", "GET", undefined, a.cookie)).value.activity.find(e => e.matchId === saved.value.id);
+  check([activity.actor, activity.text, activity.display], [a.id, "Recorded on the office big screen", true], "Activity agrees with match history");
+  for (const optedOut of ids) {
+    await query(db.database.from("nb_players").update({notifications:false}).eq("id", optedOut));
+    const mutedResult = await call("/display/matches", "POST", match, d.cookie);
+    check(mutedResult.status, 200);
+    const queued = await query(db.database.from("nb_outbox").select("recipient").eq("payload->>matchId", mutedResult.value.id));
+    check(queued.map(e => e.recipient), ids.filter(id => id !== optedOut), "Either participant can opt out of display emails");
+    await query(db.database.from("nb_players").update({notifications:true}).eq("id", optedOut));
+  }
+  const personal = await call("/matches", "POST", {...match, date:new Date().toISOString().slice(0,10)}, a.cookie);
+  check(personal.status, 200);
+  const personalEmails = await query(db.database.from("nb_outbox").select("recipient,payload").eq("payload->>matchId", personal.value.id));
+  check(personalEmails.map(e => e.recipient), [b.id], "Personal submissions still notify only the opponent");
+  check(personalEmails[0].payload.display, false, "Personal submissions are not attributed to the display");
   check(
     (await call("/matches", "POST", match, d.cookie)).status,
     401,
@@ -245,6 +258,8 @@ try {
     "POST",
     {
       ...match,
+      player1: b.id,
+      opponent: a.id,
       games: [
         { score1: 11, score2: 7 },
         { score1: 9, score2: 11 },
@@ -254,6 +269,9 @@ try {
     d.cookie,
   );
   check(three.status, 200, "Three-game decider");
+  const threeEmails = await query(db.database.from("nb_outbox").select("recipient,payload").eq("payload->>matchId", three.value.id));
+  check(threeEmails.map(e => e.recipient).sort(), [...ids].sort(), "Both best-of-three participants receive emails");
+  check(threeEmails.every(e => e.payload.actor === b.id && e.payload.display === true), true, "Recorder is the selected player, not the activating admin");
   const agentToken = secret();
   await query(
     db.database

@@ -17,13 +17,17 @@ db.database.rpc=async(name,args)=>{
  const data=name==='nb_page_matches_played'?[matchResult]:name==='nb_page_activity'?[{action:'agent.connected',after_data:{email:user.email}}]:name==='nb_standings'?{standings:{all:[{id:'a',wins:1}]}}:{
   comments:[{id:'c',match_id:'game',player_id:'b',text:'Public comment',mentions:['a'],deleted_at:null}],
   reactions:[{match_id:'game',player_id:'b',emoji:'🔥'}],
-  history:[{id:'e',actor:'a',match_id:'game',action:'match.recorded',description:'Recorded a match',after_data:{score1:2,score2:0,games:matchResult.games,notes:matchResult.notes,email:user.email,token_hash:'PRIVATE_KEY_HASH'}}],
+  history:[{id:'e',actor:'a',match_id:'game',action:'match.recorded',display_id:'private-display-id',description:'Recorded on the office display',after_data:{score1:2,score2:0,games:matchResult.games,notes:matchResult.notes,email:user.email,token_hash:'PRIVATE_KEY_HASH'}}],
   subscriptions:[{match_id:'game',player_id:'a',muted:true}],
  };
  if(name==='nb_match_content' && !args.p_player)assert.equal(args.p_player,null);
  return {data,error:null};
 };
 const publicState=await state(null);
+assert.equal(publicState.matches[0].history[0].text,'Recorded on the office big screen');
+assert.equal(publicState.matches[0].history[0].actor,'a');
+assert.equal(publicState.matches[0].history[0].display,true);
+assert.ok(!JSON.stringify(publicState).includes('private-display-id'));
 assert.equal(publicState.user,null);assert.deepEqual(publicState.keys,[]);assert.deepEqual(publicState.activity,[]);
 assert.equal(publicState.players[0].bio,user.bio);assert.equal(publicState.players[0].image,'/api/v1/photos/a');
 assert.equal(publicState.matches[0].notes,matchResult.notes);assert.equal(publicState.matches[0].comments[0].text,'Public comment');
