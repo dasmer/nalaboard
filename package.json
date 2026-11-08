@@ -6,15 +6,17 @@
   "scripts": {
     "dev": "node --env-file-if-exists=.env.local server.mjs",
     "start": "node server.mjs",
-    "test": "npm run check && node test/profile-edit-link.mjs && node test/proxy.mjs && node test/auth-domains.mjs && node test/public-state.mjs && node test/weekly-recap.mjs && node test/weekly-delivery.mjs && node test/daily-matchups.mjs && node test/daily-delivery.mjs && node test/series.mjs && node test/email-templates.mjs && node test/email-delivery.mjs && node test/match-share.mjs",
+    "test": "npm run check && node test/display-navigation.mjs && node test/profile-edit-link.mjs && node test/proxy.mjs && node test/auth-domains.mjs && node test/public-state.mjs && node test/weekly-recap.mjs && node test/weekly-delivery.mjs && node test/daily-matchups.mjs && node test/daily-delivery.mjs && node test/series.mjs && node test/email-templates.mjs && node test/email-delivery.mjs && node test/match-share.mjs",
     "preview:emails": "node test/email-preview.mjs",
     "check": "node test/syntax.mjs",
     "test:integration": "node --env-file=.env.local test/integration.mjs",
     "test:daily-integration": "node --env-file=.env.local test/daily-integration.mjs",
-    "test:weekly-integration": "node --env-file=.env.local test/weekly-integration.mjs"
+    "test:weekly-integration": "node --env-file=.env.local test/weekly-integration.mjs",
+    "test:display-integration": "node --env-file=.env.local test/display-integration.mjs"
   },
   "dependencies": {
     "@insforge/sdk": "^1.5.2",
+    "qrcode": "^1.5.4",
     "resend": "^6.32.1",
     "sharp": "^0.35.5"
   },

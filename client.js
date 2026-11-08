@@ -87,6 +87,15 @@ async function refresh() {
   const matchId = location.hash.startsWith("#match/") ? location.hash.slice(7) : null;
   const playerId = location.hash.startsWith("#profile/") ? location.hash.slice(9) : null;
   data = await api("/state" + ((matchId || playerId) ? "?" + (matchId ? "match=" + encodeURIComponent(matchId) : "player=" + encodeURIComponent(playerId)) : ""));
+  if (location.hash === "#record-match") {
+    if (data.user) {
+      history.replaceState(null, "", "#feed");
+      render();
+      recordMatch();
+      return true;
+    }
+    render(); signIn(); return false;
+  }
   if (location.hash === "#edit-profile") {
     if (data.user) {
       history.replaceState(null, "", "#profile/" + data.user.id);
@@ -510,7 +519,7 @@ function editProfile(onboard = false) {
 function account() {
   if (!data.user) return signIn();
   modal(
-    `<div class="eyebrow orange">YOUR CORNER</div><h2>Hey, ${esc(first(data.user))}.</h2><p class="muted">${esc(data.user.email)}</p><a class="btn soft full" href="#profile/${data.user.id}" data-action="close">${icon("players")} My player card</a><button class="btn soft full" data-action="edit-profile" style="margin-top:10px">${icon("edit")} Edit profile</button><a class="btn soft full" href="#activity" data-action="close" style="margin-top:10px">${icon("activity")} Activity history</a><label style="display:flex;gap:10px;align-items:center;margin-top:24px"><input style="width:auto" type="checkbox" data-preference="notifications" ${data.user.notifications ? "checked" : ""}> Match and comment emails</label><small class="field-hint">Sign-in and agent security emails stay on.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="weekly" ${data.user.weeklyRecap ? "checked" : ""}> Weekly recap</label><small class="field-hint">Friday at 5 PM London time. This week’s winner and their matches.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="daily" ${data.user.dailyMatchups ? "checked" : ""}> Daily matchups</label><small class="field-hint">Weekdays at 8 AM London time. Turning this off also removes you from the pairing pool.</small><button class="btn ghost full" data-action="logout" style="margin-top:23px">${icon("logout")} Sign out</button>`,
+    `<div class="eyebrow orange">YOUR CORNER</div><h2>Hey, ${esc(first(data.user))}.</h2><p class="muted">${esc(data.user.email)}</p><a class="btn soft full" href="#profile/${data.user.id}" data-action="close">${icon("players")} My player card</a><button class="btn soft full" data-action="edit-profile" style="margin-top:10px">${icon("edit")} Edit profile</button><a class="btn soft full" href="#activity" data-action="close" style="margin-top:10px">${icon("activity")} Activity history</a>${data.displayAdmin?'<a class="btn soft full" href="/activate#displays" style="margin-top:10px">Office displays</a>':''}<label style="display:flex;gap:10px;align-items:center;margin-top:24px"><input style="width:auto" type="checkbox" data-preference="notifications" ${data.user.notifications ? "checked" : ""}> Match and comment emails</label><small class="field-hint">Sign-in and agent security emails stay on.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="weekly" ${data.user.weeklyRecap ? "checked" : ""}> Weekly recap</label><small class="field-hint">Friday at 5 PM London time. This week’s winner and their matches.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="daily" ${data.user.dailyMatchups ? "checked" : ""}> Daily matchups</label><small class="field-hint">Weekdays at 8 AM London time. Turning this off also removes you from the pairing pool.</small><button class="btn ghost full" data-action="logout" style="margin-top:23px">${icon("logout")} Sign out</button>`,
   );
 }
 function weeklyPreferencePage(token,daily=false) {

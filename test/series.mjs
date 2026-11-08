@@ -34,3 +34,9 @@ assert.equal(matchFormat([win,win]),'Best of three');
 assert.equal(matchFormat([win,loss,deuce]),'Best of three');
 for(const match of [null,{}, {score1:10,score2:10}, {type:'deuce'}, {type:'unrecorded',winner:3}])
   assert.throws(()=>matchScore([match]),e=>e.status===400);
+
+// Display standings preserve shared ranks and keep the input unchanged.
+const {rankRows}=await import('../display-client.mjs');
+const entries=[{id:'c',wins:2,losses:3},{id:'b',wins:3,losses:1},{id:'a',wins:3,losses:1}];
+assert.deepEqual(rankRows(entries).map(p=>[p.id,p.rank]),[['a',1],['b',1],['c',3]]);
+assert.equal(entries[0].id,'c');

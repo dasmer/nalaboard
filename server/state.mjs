@@ -3,7 +3,7 @@ const playerFields='id,name,username,bio,avatar,color,image_key,created_at';
 export const player=(p,account=false)=>({id:p.id,name:p.name,username:p.username,bio:p.bio,avatar:p.avatar,color:p.color,
   image:p.image_key?`/api/v1/photos/${p.id}`:null,...(account?{email:p.email,notifications:p.notifications,weeklyRecap:p.weekly_recap,dailyMatchups:p.daily_matchups}:{})});
 const event=(e)=>({id:e.id,actor:e.actor,matchId:e.match_id,action:e.action,text:e.description,agent:e.agent,
-  before:e.before_data,after:e.after_data,createdAt:e.created_at});
+  before:e.before_data,after:e.after_data,createdAt:e.created_at,...(e.display_id?{display:true}:{})});
 const publicResult=value=>value && Object.fromEntries(['score1','score2','games','notes'].filter(key=>key in value).map(key=>[key,value[key]]));
 export async function state(identity,requestedMatch=null,cursors={},requestedPlayer=null) {
   const [people,matchResults,events,keys,totals]=await Promise.all([
