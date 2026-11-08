@@ -171,13 +171,13 @@ function render() {
             )
             .join("")
         : '<p class="empty">No matches yet.</p>'
-    }</section></div><footer class="board-footer">${button("Record match", "record", "primary", snapshot.players.length < 2 ? "disabled" : "")}<span class="record-choice">or</span><div class="record-qr"><span class="qr"><img src="/api/v1/display/qr" alt="Scan to record a match on your phone"></span><span>Scan with your phone to record</span></div></footer>${errorNode()}</section>`;
+    }</section></div><footer class="board-footer">${button("Record match", "record", "primary", snapshot.players.filter(p=>p.active!==false).length < 2 ? "disabled" : "")}<span class="record-choice">or</span><div class="record-qr"><span class="qr"><img src="/api/v1/display/qr" alt="Scan to record a match on your phone"></span><span>Scan with your phone to record</span></div></footer>${errorNode()}</section>`;
     return;
   }
   if (scene === "me" || scene === "opponent") {
     const me = scene === "me";
     root.innerHTML = `<h1>${me ? "You?" : esc(name(draft.player1)) + " vs…"}</h1>${snapshot.players.length > 8 ? '<input class="player-search" type="search" placeholder="Find a player" aria-label="Find a player">' : ""}<div class="people enter">${snapshot.players
-      .filter((p) => me || p.id !== draft.player1)
+      .filter((p) => p.active!==false && (me || p.id !== draft.player1))
       .map(
         (p) =>
           `<button class="person" data-action="${me ? "choose-me" : "choose-opponent"}" data-id="${p.id}" data-name="${esc(p.name.toLowerCase())}">${avatar(p)}<span>${esc(p.name)}</span></button>`,

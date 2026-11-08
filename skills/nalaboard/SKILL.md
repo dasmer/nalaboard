@@ -47,3 +47,5 @@ Game result options: exact `{ "score1": 11, "score2": 7 }` (optional `type: "exa
 - Authenticated `GET /daily-preference` reads your daily matchup preference.
 - Authenticated `POST /daily-preference`: `{ "enabled": false }` stops daily emails and removes you from the pairing pool; `{ "enabled": true }` rejoins. This applies only to the key owner's account.
 - Suggestions arrive weekdays at 8 AM London time. Picks are random, excluding anyone played or recommended the previous London calendar day. Each player gets up to two reciprocal opponents; no fresh options gives a random mutual Run it back rematch, and no opponents gives a recap-only email when yesterday had matches; they are suggestions, not assignments. An unplayed recommendation also blocks that pair the following day.
+
+Inactive players remain in public state for historical attribution (`active: false`). Do not select them for new matches. Historical corrections remain available to active participants. Agent credentials cannot manage player account status.

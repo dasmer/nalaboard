@@ -32,16 +32,23 @@ export async function deliverOutbox(eventId=null) {
       try {
         const matchResult=item.payload.action.startsWith('match.') ? (await query(db.database.from('nb_matches').select('player1,player2').eq('id',item.payload.matchId).limit(1)))[0] : null;
         const ids=[...new Set([item.recipient,item.payload.actor,matchResult?.player1,matchResult?.player2].filter(Boolean))];
-        const people=await query(db.database.from('nb_players').select('id,email,name,weekly_recap,daily_matchups').in('id',ids).limit(ids.length));
+        const people=await query(db.database.from('nb_players').select('id,email,name,weekly_recap,daily_matchups,active').in('id',ids).limit(ids.length));
         const recipient=people.find(p=>p.id===item.recipient), actor=people.find(p=>p.id===item.payload.actor);
         if (!recipient) throw new Error('Recipient not found.');
+        if(recipient.active===false) {
+          await query(db.database.from('nb_outbox').update({sent_at:new Date().toISOString(),leased_until:null,last_error:'Account inactive'}).eq('id',item.id));
+          continue;
+        }
+        // A previously claimed email may have been canceled by offboarding.
+        const pending=await query(db.database.from('nb_outbox').select('sent_at').eq('id',item.id).limit(1));
+        if(!pending.length || pending[0].sent_at)continue;
         let template;
         if(item.payload.action==='daily.matchups') {
           const run=(await query(db.database.from('nb_daily_runs').select('snapshot,cutoff').eq('day',item.payload.day).limit(1)))[0];
           if(!run)throw Error('Daily snapshot not found');
           const opponents=run.snapshot.pairs.filter(pair=>pair.includes(recipient.id)).flat().filter(id=>id!==recipient.id);
-          const active=opponents.length?await query(db.database.from('nb_players').select('id,daily_matchups').in('id',opponents).limit(opponents.length)):[];
-          template=recipient.daily_matchups&&Date.now()<Date.parse(run.cutoff)+7200000?dailyEmail({snapshot:run.snapshot,recipientId:recipient.id,origin:config.origin,key:config.otpSecret,activeIds:active.filter(p=>p.daily_matchups).map(p=>p.id)}):null;
+          const active=opponents.length?await query(db.database.from('nb_players').select('id,daily_matchups,active').in('id',opponents).limit(opponents.length)):[];
+          template=recipient.daily_matchups&&Date.now()<Date.parse(run.cutoff)+7200000?dailyEmail({snapshot:run.snapshot,recipientId:recipient.id,origin:config.origin,key:config.otpSecret,activeIds:active.filter(p=>p.active!==false && p.daily_matchups).map(p=>p.id)}):null;
           if(!template) {
             await query(db.database.from('nb_outbox').update({sent_at:new Date().toISOString(),leased_until:null,last_error:'Daily lineup expired or no participating opponents'}).eq('id',item.id));
             continue;

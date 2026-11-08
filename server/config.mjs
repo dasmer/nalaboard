@@ -28,6 +28,7 @@ export async function query(promise) {
   const {data,error} = await promise;
   if (error) {
     const message = error.message || 'Database request failed.';
+    if (/inactive players/i.test(message)) throw Object.assign(new Error('Choose active players for a new match.'),{status:400});
     if (/duplicate key|unique constraint/i.test(message)) throw Object.assign(new Error('That username or request is already in use.'),{status:409});
     if (/violates check constraint|invalid input syntax|not-null constraint|foreign key constraint/i.test(message)) throw Object.assign(new Error('Check the players, score, date, and profile fields.'),{status:400});
     throw Object.assign(new Error(message),{code:error.code,backendStatus:error.statusCode});

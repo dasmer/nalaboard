@@ -6,4 +6,6 @@
 - Keep credentials in ignored .env.local / .insforge files. Never print codes, keys, or email bodies in logs.
 - Integration fixtures belong only in the linked nalaboard-test or nalaboard-series-test project. Never seed production or import legacy JSON.
 - Run npm test for local checks and npm run test:integration against the isolated test server for backend changes.
-- Display admins may only activate and revoke shared office displays. No other administrator features. Do not merge or deploy without explicit user authorization.
+- Display admins may only activate and revoke shared office displays. Display-admin access does not grant player management. Do not merge or deploy without explicit user authorization.
+
+- Player admins may only deactivate/reactivate existing players. These permissions are separate from display administration; agent sessions cannot use them.

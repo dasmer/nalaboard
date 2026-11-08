@@ -43,6 +43,6 @@ export async function identity(req) {
   const sessions=await readQuery(()=>db.database.from('nb_sessions').select('id,player_id,kind,label,expires_at,revoked_at').eq('token_hash',hash(token)).limit(1));
   const session=sessions[0];
   if (!session || session.revoked_at || Date.parse(session.expires_at)<=Date.now() || (bearer && session.kind!=='agent')) return null;
-  const people=await readQuery(()=>db.database.from('nb_players').select('id,email,name,username,bio,avatar,color,image_key,notifications,weekly_recap,daily_matchups').eq('id',session.player_id).limit(1));
-  return people[0]?{user:people[0],session,tokenHash:hash(token)}:null;
+  const people=await readQuery(()=>db.database.from('nb_players').select('id,email,name,username,bio,avatar,color,image_key,notifications,weekly_recap,daily_matchups,active').eq('id',session.player_id).limit(1));
+  return people[0] && people[0].active!==false?{user:people[0],session,tokenHash:hash(token)}:null;
 }

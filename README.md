@@ -109,7 +109,7 @@ For a future Nala handover, transfer the GitHub repository and InsForge project,
 
 Open `/bigscreen` on the shared office laptop or iPad. An admin scans the QR code or enters the display code at `/activate`, then approves. Remote approval preserves the admin's personal login. **Activate on this computer** verifies email without creating a personal session. The regular activation page also detects its own display browser and clears/revokes that browser's personal session after approval.
 
-The first display admins are the existing account IDs for `@benjaminf7` and `@susannabae_80a68f30`. The migration binds permissions to those IDs, not mutable usernames; absent accounts in isolated test projects receive no automatic grant. Admins can activate and disconnect displays at `/activate#displays` (also linked from their account menu). No other admin powers are added.
+The first display admins are the existing account IDs for `@benjaminf7` and `@susannabae_80a68f30`. The migration binds permissions to those IDs, not mutable usernames; absent accounts in isolated test projects receive no automatic grant. Admins can activate and disconnect displays at `/admin#big-screens`, reached through Admin in their account menu; `/activate#displays` remains available. No other admin powers are added.
 
 Display sessions use a separate HttpOnly cookie and expire after 90 days of inactivity. Five-minute pairing codes are single-use, rate-limited and stored as hashes; the QR contains only the short pairing code, never a display credential. Display credentials can only record completed matches. History identifies the selected recorder and the office big screen. Both participants receive personalized result emails when match emails are enabled, including the selected recorder. Attribution uses the selected player, not the admin who activated the display. Participants use their normal accounts for corrections.
 
@@ -124,3 +124,15 @@ The `bigscreen-match-emails` migration enables both-recipient queueing and email
 Validation: `npm test`, the existing backend suites, and `npm run test:display-integration` against an isolated test server. Display fixtures must remain in `nalaboard-test` or `nalaboard-series-test`; test delivery is disabled. Real inbox delivery and physical office TV/iPad testing are separate acceptance checks.
 
 Brand assets: the header reuses Nalaboard’s existing dark-background logo treatment. Celebrations focus on the players and scores. Motion uses CSS and browser animation APIs; `qrcode` is the only new dependency and runs on the server.
+
+## Player deactivation
+
+Player admins open **Admin** from their account menu, or visit `/admin`, then use **Players** to deactivate or reactivate accounts. Normal player cards and rosters are identical for admins and everyone else. The initial player admins are the same two immutable account IDs as the initial display admins, with separate permission tables. Player management requires a personal browser session; agent and display credentials cannot use it, and admins cannot deactivate themselves.
+
+Deactivation revokes browser and agent sessions, invalidates pending sign-in codes, blocks new sign-ins and new matches, cancels queued emails, and removes the player from active rosters, pickers, daily lineups, current standings, and big-screen standings. Names, avatars, comments, past results, all-time standings, and direct profile links remain; the profile shows **Inactive**. Active opponents can still correct historical scores. Status changes are recorded in activity history without employment details.
+
+Reactivation restores participation and the player's existing email preferences, requires a fresh sign-in, and never restores old tokens or canceled emails. Shared displays stay activated when their activating admin is deactivated.
+
+Apply `20261108145007_player-deactivation.sql` before deploying the matching app. It is additive and does not deactivate any existing account. Validate with `npm test`, `npm run test:integration`, and `npm run test:player-status-integration` against the isolated test server. Production is never seeded for verification.
+
+The **Big screens** section of `/admin` accepts a display code, hands off to the existing `/activate?code=…` approval flow, and lists connected screens with a Disconnect action. Display and player permissions remain separate. `/activate` continues to accept manually entered codes, QR links still open `/activate?code=…`, and `/activate#displays` remains available.

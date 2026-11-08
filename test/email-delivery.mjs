@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 // Fake credentials and an intercepted transport: this test cannot send email.
 Object.assign(process.env,{APP_ENV:'test',INSFORGE_URL:'http://localhost:1',INSFORGE_API_KEY:'fixture-only',
   RESEND_API_KEY:'re_fixture_only',EMAIL_TEST_RECIPIENTS:'inbox@example.test',EMAIL_TEST_SINK:'inbox@example.test'});
+let inactive=false,canceled=false;
 const sent=[];
 globalThis.fetch=async(url,options)=>{
   assert.equal(String(url),'https://api.resend.com/emails');
@@ -25,8 +26,8 @@ db.database.from=table=>{
     update(value){update=value;return this},then(resolve,reject){
       let data;
       if(table==='nb_matches'){gameLookups++;data=[{player1:'a',player2:'b'}];}
-      else if(table==='nb_players')data=[{id:'a',name:'Alex',email:'a@example.test'},{id:'b',name:'Jordan',email:'b@example.test'}].filter(p=>ids.includes(p.id));
-      else {assert.equal(table,'nb_outbox');updates.push(update);data=[];}
+      else if(table==='nb_players')data=[{id:'a',name:'Alex',email:'a@example.test'},{id:'b',name:'Jordan',email:'b@example.test'}].filter(p=>ids.includes(p.id)).map(p=>({...p,active:p.id==='b'?!inactive:true}));
+      else {assert.equal(table,'nb_outbox');if(update){updates.push(update);data=[];}else data=[{sent_at:canceled?new Date().toISOString():null}];}
       return Promise.resolve({data,error:null}).then(resolve,reject);
     }};
   return chain;
@@ -48,3 +49,8 @@ assert.equal(gameLookups,3,'Comments and security notices need no extra game loo
 assert.equal(updates.length,5);
 assert.ok(updates.every(u=>u.sent_at && u.last_error===null));
 console.log('Email delivery checks passed with mocked database and Resend transport; no emails sent.');
+
+rows.splice(0,rows.length,{id:'cancel-fixture',recipient:'b',payload:{action:'match.recorded',matchId:'game',actor:'a',after},subject:'Fixture',attempts:0});
+inactive=true;await deliverOutbox();assert.equal(sent.length,6,'Inactive recipients receive no email');
+inactive=false;canceled=true;await deliverOutbox();assert.equal(sent.length,6,'Reactivation never revives a canceled, previously claimed email');
+console.log('Offboarding delivery passed: inactive suppression and canceled-claim protection after reactivation.');

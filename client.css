@@ -2283,3 +2283,22 @@ h3, .section-title h3 { font-size: 20px; }
 .single-game-choice:has(button[hidden]) { display:none; }
 .single-game-summary { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding:13px; margin-bottom:12px; border-radius:12px; background:var(--paper); }
 .single-game-summary[hidden] { display:none; }
+
+.badge.inactive { background: #eef0f2; color: #60646c; }
+
+.admin-shell { max-width:1100px; margin:auto; }
+.admin-shell .logo { width:175px; flex-shrink:0; }
+.admin-tabs { margin:24px 0; }
+.admin-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 0; border-bottom:1px solid #e3eaf0; }
+.admin-row[hidden] { display:none; }
+.admin-row:last-child { border-bottom:0; }
+.admin-row .player-cell { display:flex; align-items:center; gap:12px; min-width:0; }
+.admin-row .player-cell strong, .admin-row .player-cell small { display:block; }
+.admin-row .player-cell small { color:var(--muted); }
+.admin-shell .panel .page-heading { margin-bottom:12px; align-items:center; }
+.admin-row .player-cell strong { overflow-wrap:anywhere; }
+.admin-row > .btn { flex-shrink:0; }
+.admin-activation { display:flex; align-items:end; gap:14px; flex-wrap:wrap; margin-top:20px; }
+.admin-activation > div:first-child { flex:1; min-width:180px; }
+.admin-activation input { margin:0; }
+.admin-activation .form-error { flex-basis:100%; }

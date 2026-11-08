@@ -42,6 +42,7 @@ let data = { players: [], matches: [], activity: [], keys: [], user: null },
   feedFilter = "all",
   scope = "week",
   activityFilter = "all",
+  playerStatusFilter = "active",
   agentClient = "Codex",
   commentsOpen = new Set(),
   reactionOpen = null,
@@ -87,6 +88,12 @@ async function refresh() {
   const matchId = location.hash.startsWith("#match/") ? location.hash.slice(7) : null;
   const playerId = location.hash.startsWith("#profile/") ? location.hash.slice(9) : null;
   data = await api("/state" + ((matchId || playerId) ? "?" + (matchId ? "match=" + encodeURIComponent(matchId) : "player=" + encodeURIComponent(playerId)) : ""));
+  if (location.pathname === "/admin") {
+    if (data.displayAdmin && (location.hash === "#big-screens" || !data.playerAdmin))
+      data.displays = (await api("/displays")).displays;
+    render();
+    return true;
+  }
   if (location.hash === "#record-match") {
     if (data.user) {
       history.replaceState(null, "", "#feed");
@@ -142,7 +149,7 @@ function scoped() {
 function board(matchResults = null, period = scope) {
   return data.players
     .map((p) => ({ ...p, ...(!matchResults && data.standings ? data.standings[period].find(row=>row.id===p.id) || {played:0,wins:0,losses:0,rate:0} : stats(p.id, matchResults || scoped())) }))
-    .filter((p) => p.played)
+    .filter((p) => p.played && (period === "all" || p.active !== false))
     .sort(
       (a, b) =>
         b.wins - a.wins ||
@@ -267,7 +274,7 @@ function leaderboard() {
           .slice(0, 3)
           .map(
             (p, i) =>
-              `<a class="podium-card ${p.rank === 1 ? "first" : ""}" href="#profile/${p.id}"><span class="place">${String(p.rank).padStart(2,"0")}</span><span class="crown">${["👑", "🥈", "🥉"][p.rank-1] || ""}</span>${avatar(p, "large")}<h3>${esc(first(p))}</h3><small>@${esc(p.username)}</small><div class="wins">${p.wins}<small>${"wins this " + (scope === "all" ? "season" : scope)}</small></div></a>`,
+              `<a class="podium-card ${p.rank === 1 ? "first" : ""}" href="#profile/${p.id}"><span class="place">${String(p.rank).padStart(2,"0")}</span><span class="crown">${["👑", "🥈", "🥉"][p.rank-1] || ""}</span>${avatar(p, "large")}<h3>${esc(first(p))}</h3>${p.active===false?'<span class="badge inactive">Inactive</span>':''}<small>@${esc(p.username)}</small><div class="wins">${p.wins}<small>${"wins this " + (scope === "all" ? "season" : scope)}</small></div></a>`,
           )
           .join(
             "",
@@ -281,14 +288,15 @@ function leaderboard() {
   }`;
 }
 function players() {
-  return `${heading("Meet your match.", "Your colleagues. Your competition. A few suspiciously good backhands.", "THE PLAYERS", `<div class="search"><input id="player-search" aria-label="Search players" placeholder="Search the roster…"></div>`)}<div class="player-grid">${data.players
+  const roster = data.players.filter(p => p.active !== false);
+  return `${heading("Meet your match.", "Your colleagues. Your competition. A few suspiciously good backhands.", "THE PLAYERS", `<div class="search"><input id="player-search" aria-label="Search players" placeholder="Search the roster…"></div>`)}<div class="player-grid">${roster
     .map((p) => {
       const s = stats(p.id);
-      return `<a class="panel player-card" href="#profile/${p.id}" data-player-search="${esc((p.name + " " + p.username).toLowerCase())}">${avatar(p, "large")}<h3>${esc(first(p))}</h3><small>@${esc(p.username)}</small><p>${esc(p.bio || "New to the table. Ready to play.")}</p><div class="mini-stats"><div><strong>${s.wins}</strong><small>WINS</small></div><div><strong>${s.played}</strong><small>GAMES</small></div><div><strong>${s.rate}%</strong><small>WIN RATE</small></div></div></a>`;
+      return `<a class="panel player-card" href="#profile/${p.id}" data-player-search="${esc((p.name + " " + p.username).toLowerCase())}">${avatar(p, "large")}<h3>${esc(first(p))}</h3>${p.active===false?'<span class="badge inactive">Inactive</span>':''}<small>@${esc(p.username)}</small><p>${esc(p.bio || (p.active===false ? "" : "New to the table. Ready to play."))}</p><div class="mini-stats"><div><strong>${s.wins}</strong><small>WINS</small></div><div><strong>${s.played}</strong><small>GAMES</small></div><div><strong>${s.rate}%</strong><small>WIN RATE</small></div></div></a>`;
     })
     .join(
       "",
-    )}</div><div id="search-empty" hidden>${empty("No players found.", "Try a different name or username.")}</div>`;
+    )}</div><div id="search-empty" ${roster.length?'hidden':''}>${empty("No players found.", "Try a different name or username.")}</div>`;
 }
 function profile(id) {
   const p = player(id);
@@ -306,7 +314,7 @@ function profile(id) {
     rival = opponents[0],
     h2h = matchResults.filter((g) => [g.player1, g.player2].includes(rival?.id)),
     rs = data.rivalries ? data.rivalries.find(r=>r.id===id && r.opponent===rival?.id) || {played:0,wins:0,losses:0} : stats(id, h2h);
-  return `${heading("Player card.", "A little personality behind the paddle.", "THE ROSTER")}<div class="columns"><div><section class="panel profile-panel"><div class="profile-cover"><span>PLAY YOUR GAME.</span></div><div class="profile-intro">${avatar(p, "large")}${data.user?.id === id ? `<button class="btn ghost small profile-edit" data-action="edit-profile">${icon("edit")} Edit profile</button>` : `<button class="btn ghost small profile-edit" data-action="record" data-opponent="${id}">Record a match</button>`}<h1>${esc(p.name)}</h1><small>@${esc(p.username)} · Nalaboard player</small><p class="bio">${esc(p.bio || "New to the table. Ready to play.")}</p><div class="badges">${s.wins ? '<span class="badge">🏓 First W</span>' : ""}${s.played >= 5 ? '<span class="badge">🔥 Table regular</span>' : ""}${s.rate >= 70 && s.played ? '<span class="badge">⚡ On a roll</span>' : ""}<span class="badge">✦ Founding roster</span></div></div></section><div class="stats-grid">${[
+  return `${heading("Player card.", "A little personality behind the paddle.", "THE ROSTER")}<div class="columns"><div><section class="panel profile-panel"><div class="profile-cover"><span>${p.active===false?"MATCH HISTORY":"PLAY YOUR GAME."}</span></div><div class="profile-intro">${avatar(p, "large")}${data.user?.id === id ? `<button class="btn ghost small profile-edit" data-action="edit-profile">${icon("edit")} Edit profile</button>` : p.active!==false ? `<button class="btn ghost small profile-edit" data-action="record" data-opponent="${id}">Record a match</button>` : ''}<h1>${esc(p.name)}</h1><small>@${esc(p.username)} · ${p.active===false?'Inactive':'Nalaboard player'}</small><p class="bio">${esc(p.bio || (p.active===false ? "" : "New to the table. Ready to play."))}</p><div class="badges">${s.wins ? '<span class="badge">🏓 First W</span>' : ""}${s.played >= 5 ? '<span class="badge">🔥 Table regular</span>' : ""}${s.rate >= 70 && s.played ? '<span class="badge">⚡ On a roll</span>' : ""}<span class="badge">✦ Founding roster</span></div></div></section><div class="stats-grid">${[
     ["Wins", s.wins],
     ["Losses", s.losses],
     ["Win rate", s.rate + "%"],
@@ -318,7 +326,7 @@ function profile(id) {
     )
     .join(
       "",
-    )}</div><div class="section-title"><h2>From the table</h2><small>${s.played} matches played</small></div>${matchResults.length ? matchResults.map((g) => post(g)).join("") : empty("The first serve awaits.", "Record a match to start your match history.", "Record match", "record")}${data.pagination?.matches ? `<button class="btn soft full" data-action="load-more" data-kind="matches">Earlier matches</button>` : ""}</div><aside class="rail"><section class="panel"><div class="section-title"><h3>The rivalry</h3><span>⚔</span></div>${rival?.count ? `<a href="#profile/${rival.id}" class="rivalry">${avatar(rival, "medium")}<div><strong>${esc(rival.name)}</strong><small style="display:block">${rs.played} matches together</small></div></a><div class="rivalry"><span class="display">${rs.wins} <span class="muted">—</span> ${rs.losses}</span><small>${rs.wins === rs.losses ? "Dead even. Rematch?" : rs.wins > rs.losses ? "You have the edge." : "A comeback is calling."}</small></div><div class="progress"><span style="width:${(rs.wins / rs.played) * 100}%"></span></div><div class="rival-labels"><span>${esc(first(p))}</span><span>${esc(first(rival))}</span></div>` : '<p class="muted">Your rivalries begin with your first match.</p>'}</section><section class="panel"><h3>Recent form</h3><div class="week-strip" style="margin-top:18px">${form(id) || "<small>No matches yet</small>"}</div><p class="tooltip-note">Last five matches · oldest to newest</p></section><section class="panel quote-panel"><div class="eyebrow">THE PLAYER’S CREED</div><h3>Win with grace.<br>Lose with a rematch.</h3><p>There’s always another game.</p></section></aside></div>`;
+    )}</div><div class="section-title"><h2>From the table</h2><small>${s.played} matches played</small></div>${matchResults.length ? matchResults.map((g) => post(g)).join("") : (p.active===false ? empty("No matches recorded.", "") : empty("The first serve awaits.", "Record a match to start your match history.", "Record match", "record"))}${data.pagination?.matches ? `<button class="btn soft full" data-action="load-more" data-kind="matches">Earlier matches</button>` : ""}</div><aside class="rail"><section class="panel"><div class="section-title"><h3>The rivalry</h3><span>⚔</span></div>${rival?.count ? `<a href="#profile/${rival.id}" class="rivalry">${avatar(rival, "medium")}<div><strong>${esc(rival.name)}</strong><small style="display:block">${rs.played} matches together</small></div></a><div class="rivalry"><span class="display">${rs.wins} <span class="muted">—</span> ${rs.losses}</span><small>${rs.wins === rs.losses ? "Dead even. Rematch?" : rs.wins > rs.losses ? "You have the edge." : "A comeback is calling."}</small></div><div class="progress"><span style="width:${(rs.wins / rs.played) * 100}%"></span></div><div class="rival-labels"><span>${esc(first(p))}</span><span>${esc(first(rival))}</span></div>` : '<p class="muted">Your rivalries begin with your first match.</p>'}</section><section class="panel"><h3>Recent form</h3><div class="week-strip" style="margin-top:18px">${form(id) || "<small>No matches yet</small>"}</div><p class="tooltip-note">Last five matches · oldest to newest</p></section><section class="panel quote-panel"><div class="eyebrow">THE PLAYER’S CREED</div><h3>Win with grace.<br>Lose with a rematch.</h3><p>There’s always another game.</p></section></aside></div>`;
 }
 function match(id) {
   const g = data.matches.find((g) => g.id === id);
@@ -343,7 +351,7 @@ function activity() {
         ? e.action.startsWith("match.")
         : activityFilter === "social"
           ? /^(reaction|comment)\./.test(e.action)
-          : e.action.startsWith("profile.") || e.action.startsWith("agent.")),
+          : e.action.startsWith("profile.") || e.action.startsWith("agent.") || e.action.startsWith("player.")),
   );
   return `${heading("Nothing under the table.", "An open record of who did what. No mysteries, just receipts.", "ACTIVITY HISTORY")}<div class="tabs">${[
     ["all", "Everything"],
@@ -365,7 +373,7 @@ function setupInstruction(token) {
   return `Connect ${agentClient} to my Nalaboard at ${location.origin}. Read ${location.origin}/agent.md. Install it as the nalaboard skill in your supported skills directory (Codex: ~/.codex/skills/nalaboard/SKILL.md; Claude Code: ~/.claude/skills/nalaboard/SKILL.md), or retain it as your playbook if your app has no skill installer. Save my personal key in a private credential store: ${token}. Use ${location.origin}${apiBase} with bearer authentication, fetch /state, confirm my identity, and tell me you’re ready. Never print or commit the key.`;
 }
 function agents() {
-  return `${heading("Your agent. Your game.", "Let your agent handle the paperwork. You handle the paddle.", "THE AGENT CORNER")}<section class="agent-hero"><div><div class="eyebrow">HUMAN OR AGENT. SAME PLAYBOOK.</div><h2>“I beat Benjamin 11–7, 11–9.”<br>Consider it recorded.</h2><p>Scores, player cards, comments, and standings. Everything you can do, your agent can do too.</p></div><div class="terminal"><div class="terminal-bar"><i></i><i></i><i></i><span style="margin-left:auto;color:#a6d8ef;font-size:9px">NALABOARD SKILL</span></div><p><span class="prompt">you ›</span> I beat Benjamin 11–7, 11–9. Add “rematch?”</p><p style="margin:10px 0;color:#a6d8ef">✓ Game recorded as @you<br>✓ Standings updated<br>✓ Posted to the feed</p><p style="color:#a6d8ef">Ready for the next one. 🏓</p></div></section><div class="agent-layout"><section class="panel"><h3>Put your agent on the roster.</h3><p class="tooltip-note">One connection. All your clubhouse moves.</p><div class="step-label">01 · Choose your agent</div><div class="client-picker">${[
+  return `${heading("Your agent. Your game.", "Let your agent handle the paperwork. You handle the paddle.", "THE AGENT CORNER")}<section class="agent-hero"><div><div class="eyebrow">HUMAN OR AGENT. SAME PLAYBOOK.</div><h2>“I beat Benjamin 11–7, 11–9.”<br>Consider it recorded.</h2><p>Scores, player cards, comments, and standings. Your agent can record scores, edit your player card, and join the conversation.</p></div><div class="terminal"><div class="terminal-bar"><i></i><i></i><i></i><span style="margin-left:auto;color:#a6d8ef;font-size:9px">NALABOARD SKILL</span></div><p><span class="prompt">you ›</span> I beat Benjamin 11–7, 11–9. Add “rematch?”</p><p style="margin:10px 0;color:#a6d8ef">✓ Game recorded as @you<br>✓ Standings updated<br>✓ Posted to the feed</p><p style="color:#a6d8ef">Ready for the next one. 🏓</p></div></section><div class="agent-layout"><section class="panel"><h3>Put your agent on the roster.</h3><p class="tooltip-note">One connection. All your clubhouse moves.</p><div class="step-label">01 · Choose your agent</div><div class="client-picker">${[
     ["Codex", "⌘"],
     ["Claude Code", "✳"],
     ["Muse", "◈"],
@@ -400,8 +408,27 @@ function agents() {
       "",
     )}</section></div><section class="panel" style="margin-top:23px"><div class="section-title"><h3>Your connections</h3><small>Personal. Revocable. Yours.</small></div>${data.keys.length ? data.keys.map((k) => `<div class="connection"><span class="avatar" style="background:#eaf7fc">${icon("agent")}</span><div><strong>${esc(k.label)}</strong><small>API access · created ${dateLabel(k.createdAt.slice(0, 10))}</small></div><button data-action="revoke-key" data-id="${k.id}">Disconnect</button></div>`).join("") : '<p class="muted" style="font-size:12px">No agents connected yet. Your future teammate is waiting above.</p>'}</section>`;
 }
+function adminPlayers() {
+  if (!data.playerAdmin) return "";
+  const inactive = playerStatusFilter === "inactive";
+  const roster = data.players.filter(p => inactive ? p.active === false : p.active !== false);
+  return `<section class="panel"><div class="page-heading"><div class="tabs">${["active","inactive"].map(status=>`<button data-action="player-status-filter" data-value="${status}" class="${playerStatusFilter===status?'active':''}">${status==='active'?'Active':'Inactive'}</button>`).join('')}</div><div class="search"><input id="player-search" aria-label="Search players" placeholder="Search players"></div></div>${roster.map(p=>`<div class="admin-row" data-player-search="${esc((p.name+' '+p.username).toLowerCase())}"><a class="player-cell" href="/#profile/${p.id}">${avatar(p)}<div><strong>${esc(p.name)}</strong><small>@${esc(p.username)}</small></div></a>${p.id===data.user.id?'<span class="muted">You</span>':`<button class="btn soft small" data-action="player-status" data-player-id="${p.id}">${inactive?'Reactivate':'Deactivate'}</button>`}</div>`).join('')}<p class="muted" id="search-empty" ${roster.length?'hidden':''}>No players found.</p></section>`;
+}
+function adminScreens() {
+  if (!data.displayAdmin) return "";
+  const screens = (data.displays || []).filter(d=>!d.revoked_at);
+  return `<section class="panel"><h2>Activate a big screen</h2><form class="admin-activation" data-form="admin-activate"><div><label for="display-code">Display code</label><input id="display-code" name="code" autocomplete="off" autocapitalize="characters" required></div><button class="btn primary" type="submit">Continue</button><div class="form-error" role="alert"></div></form></section><section class="panel" style="margin-top:24px"><h2>Connected big screens</h2>${screens.length?screens.map(d=>`<div class="admin-row"><div><strong>Office big screen</strong><p class="muted">Last connected ${esc(new Date(d.last_seen_at).toLocaleString('en-GB',{timeZone:'Europe/London'}))}</p></div><button class="btn soft small" data-action="admin-disconnect" data-display-id="${d.id}">Disconnect</button></div>`).join(''):'<p class="muted" style="margin-top:18px">No big screens connected.</p>'}</section>`;
+}
+function renderAdmin() {
+  document.title = "Admin · Nalaboard";
+  const allowed = data.user && (data.playerAdmin || data.displayAdmin);
+  const screens = data.displayAdmin && (location.hash === "#big-screens" || !data.playerAdmin);
+  const content = !data.user ? empty("Sign in to manage Nalaboard.", "", "Sign in", "signin") : !allowed ? empty("Admin access required.", "") : `<h1>Admin</h1><div class="tabs admin-tabs">${data.playerAdmin?`<button data-action="admin-tab" data-value="players" class="${!screens?'active':''}">Players</button>`:''}${data.displayAdmin?`<button data-action="admin-tab" data-value="big-screens" class="${screens?'active':''}">Big screens</button>`:''}</div>${screens?adminScreens():adminPlayers()}`;
+  $('#app').innerHTML = `<div class="admin-shell"><header class="topbar"><a class="logo" href="/" aria-label="Nalaboard home"><img class="brand-image" src="/brand-logo.png" width="800" height="210" alt="Nalaboard"></a>${data.user?`<button data-action="account" aria-label="Your account">${avatar(data.user,'tiny')}</button>`:''}</header><main class="content">${content}</main></div>`;
+}
 function render() {
   clearReactionEffect();
+  if (location.pathname === "/admin") {renderAdmin();return;}
   const [route = "feed", id] = location.hash.slice(1).split("/");
   if(['weekly-emails','daily-emails'].includes(route)) { weeklyPreferencePage(id,route==='daily-emails'); return; }
   const page = [
@@ -484,12 +511,13 @@ let recordDraft;
 function recordMatch(opponent = "", matchResult = null) {
   if (!requireLogin()) return;
   recordDraft = {opponent:matchResult?.player2 || opponent,matchResult,games:matchResult?.games || [],date:today,notes:matchResult?.notes || "",single:matchResult?.games.length===1};
+  if (!matchResult && recordDraft.opponent && player(recordDraft.opponent).active===false) { toast('Choose an active player.'); return; }
   if (!recordDraft.opponent) chooseOpponent();
   else recordScores();
 }
 function chooseOpponent() {
   const recent = [...new Set(data.matches.filter(g => [g.player1,g.player2].includes(data.user.id)).map(g => g.player1 === data.user.id ? g.player2 : g.player1))];
-  const people = data.players.filter(p => p.id !== data.user.id).sort((a,b) => {
+  const people = data.players.filter(p => p.id !== data.user.id && p.active!==false).sort((a,b) => {
     const rank = p => recent.includes(p.id) ? recent.indexOf(p.id) : Infinity;
     return rank(a)-rank(b) || a.name.localeCompare(b.name);
   });
@@ -519,8 +547,9 @@ function editProfile(onboard = false) {
 }
 function account() {
   if (!data.user) return signIn();
+  const home = location.pathname === "/admin" ? "/" : "";
   modal(
-    `<div class="eyebrow orange">YOUR CORNER</div><h2>Hey, ${esc(first(data.user))}.</h2><p class="muted">${esc(data.user.email)}</p><a class="btn soft full" href="#profile/${data.user.id}" data-action="close">${icon("players")} My player card</a><button class="btn soft full" data-action="edit-profile" style="margin-top:10px">${icon("edit")} Edit profile</button><a class="btn soft full" href="#activity" data-action="close" style="margin-top:10px">${icon("activity")} Activity history</a>${data.displayAdmin?'<a class="btn soft full" href="/activate#displays" style="margin-top:10px">Office displays</a>':''}<label style="display:flex;gap:10px;align-items:center;margin-top:24px"><input style="width:auto" type="checkbox" data-preference="notifications" ${data.user.notifications ? "checked" : ""}> Match and comment emails</label><small class="field-hint">Sign-in and agent security emails stay on.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="weekly" ${data.user.weeklyRecap ? "checked" : ""}> Weekly recap</label><small class="field-hint">Friday at 5 PM London time. This week’s winner and their matches.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="daily" ${data.user.dailyMatchups ? "checked" : ""}> Daily matchups</label><small class="field-hint">Weekdays at 8 AM London time. Turning this off also removes you from the pairing pool.</small><button class="btn ghost full" data-action="logout" style="margin-top:23px">${icon("logout")} Sign out</button>`,
+    `<div class="eyebrow orange">YOUR CORNER</div><h2>Hey, ${esc(first(data.user))}.</h2><p class="muted">${esc(data.user.email)}</p><a class="btn soft full" href="${home}#profile/${data.user.id}" data-action="close">${icon("players")} My player card</a>${home?`<a class="btn soft full" href="/#edit-profile" style="margin-top:10px">${icon('edit')} Edit profile</a>`:`<button class="btn soft full" data-action="edit-profile" style="margin-top:10px">${icon('edit')} Edit profile</button>`}<a class="btn soft full" href="${home}#activity" data-action="close" style="margin-top:10px">${icon("activity")} Activity history</a>${data.playerAdmin || data.displayAdmin?'<a class="btn soft full" href="/admin" style="margin-top:10px">Admin</a>':''}<label style="display:flex;gap:10px;align-items:center;margin-top:24px"><input style="width:auto" type="checkbox" data-preference="notifications" ${data.user.notifications ? "checked" : ""}> Match and comment emails</label><small class="field-hint">Sign-in and agent security emails stay on.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="weekly" ${data.user.weeklyRecap ? "checked" : ""}> Weekly recap</label><small class="field-hint">Friday at 5 PM London time. This week’s winner and their matches.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="daily" ${data.user.dailyMatchups ? "checked" : ""}> Daily matchups</label><small class="field-hint">Weekdays at 8 AM London time. Turning this off also removes you from the pairing pool.</small><button class="btn ghost full" data-action="logout" style="margin-top:23px">${icon("logout")} Sign out</button>`,
   );
 }
 function weeklyPreferencePage(token,daily=false) {
@@ -620,6 +649,39 @@ async function action(el) {
       el.disabled=true;
       try { await api("/"+el.dataset.kind+"-preference","POST",{token:el.dataset.token,enabled:false}); weeklyPreferencePage(el.dataset.token,el.dataset.kind==="daily"); }
       catch(err) { el.disabled=false;throw err; }
+      break;
+    case "admin-tab":
+      location.hash=el.dataset.value;
+      break;
+    case "admin-disconnect":
+      modal(`<h2>Disconnect this big screen?</h2><p class="muted" style="margin:20px 0">It will need to be activated again.</p><div class="form-error" role="alert"></div><div class="match-actions"><button class="btn soft" data-action="close">Cancel</button><button class="btn primary" data-action="confirm-admin-disconnect" data-display-id="${el.dataset.displayId}">Disconnect</button></div>`);
+      break;
+    case "confirm-admin-disconnect":
+      el.disabled=true;
+      try {await api('/displays/'+el.dataset.displayId,'DELETE');closeModal();await refresh();}
+      catch(err){el.disabled=false;const message=$('#modal-root .form-error');if(message)message.textContent=err.message;else toast(err.message);}
+      break;
+    case "player-status-filter":
+      playerStatusFilter=el.dataset.value;
+      render();
+      break;
+    case "player-status": {
+      const p=player(el.dataset.playerId), active=p.active===false;
+      modal(`<h2>${active?'Reactivate':'Deactivate'} ${esc(p.name)}?</h2><p class="muted" style="margin:20px 0">${active?'They can sign in again. Previous agent connections stay disconnected.':'They will be signed out and removed from active play. Their name and match history stay visible.'}</p><div class="form-error" role="alert"></div><div class="match-actions"><button class="btn soft" data-action="close">Cancel</button><button class="btn primary" data-action="confirm-player-status" data-player-id="${p.id}" data-active="${active}">${active?'Reactivate':'Deactivate'}</button></div>`);
+      break;
+    }
+    case "confirm-player-status":
+      el.disabled=true;
+      try {
+        await api('/players/'+el.dataset.playerId+'/status','PATCH',{active:el.dataset.active==='true'});
+        closeModal();
+        await refresh();
+        toast(el.dataset.active==='true'?'Player reactivated.':'Player deactivated.');
+      } catch(err) {
+        el.disabled=false;
+        const message=$('#modal-root .form-error');
+        if(message)message.textContent=err.message;else toast(err.message);
+      }
       break;
     case "record":
       recordMatch(el.dataset.opponent);
@@ -825,6 +887,9 @@ document.addEventListener("submit", async (e) => {
   if (btn) btn.disabled = true;
   try {
     switch (f.dataset.form) {
+      case "admin-activate":
+        location.assign('/activate?code='+encodeURIComponent(b.code.trim().toUpperCase()));
+        break;
       case "email":
         const out = await api("/auth/request", "POST", b);
         otp(out.email);
@@ -961,7 +1026,7 @@ document.addEventListener("input", (e) => {
   if(e.target.name === "text" && e.target.closest('[data-form="comment"]')) {
     const input=e.target, picker=input.closest("form").querySelector(".mention-picker");
     const match=/(?:^|\s)@([a-z0-9_]*)$/i.exec(input.value.slice(0,input.selectionStart));
-    const matches=match ? data.players.filter(p => (p.username+" "+p.name).toLowerCase().includes(match[1].toLowerCase())).slice(0,6) : [];
+    const matches=match ? data.players.filter(p => p.active!==false && (p.username+" "+p.name).toLowerCase().includes(match[1].toLowerCase())).slice(0,6) : [];
     picker.hidden=!matches.length;
     picker.innerHTML=matches.map(p=>`<button type="button" data-action="mention" data-player="${p.id}">${avatar(p,"tiny")}<span>${esc(p.name)} <small>@${esc(p.username)}</small></span></button>`).join("");
   }

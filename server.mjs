@@ -1,3 +1,4 @@
+import {isPlayerAdmin,setPlayerActive} from './server/players.mjs';
 import {displayAPI,isDisplayAdmin} from './server/displays.mjs';
 import {weeklyTokenPlayer} from './server/weekly-recap.mjs';
 import {dailyTokenPlayer} from './server/daily-matchups.mjs';
@@ -61,7 +62,8 @@ async function api(req,res,url) {
         cursors[kind]=cursor;
       }
     }
-    return {...await state(who,matchId,cursors,player),displayAdmin:await isDisplayAdmin(who)};
+    const [board,displayAdmin,playerAdmin]=await Promise.all([state(who,matchId,cursors,player),isDisplayAdmin(who),isPlayerAdmin(who)]);
+    return {...board,displayAdmin,playerAdmin};
   }
   if(['/weekly-preference','/daily-preference'].includes(path) && ['GET','POST'].includes(req.method)) {
     const daily=path==='/daily-preference',field=daily?'daily_matchups':'weekly_recap';
@@ -86,6 +88,11 @@ async function api(req,res,url) {
     res.setHeader('Content-Type','image/webp');res.end(Buffer.from(await blob.arrayBuffer()));return null;
   }
   if(!who) throw error('Sign in to continue.',401);
+  const playerStatus=/^\/players\/([^/]+)\/status$/.exec(path);
+  if(playerStatus && req.method==='PATCH') {
+    if(!uuid(playerStatus[1]))throw error('Invalid player.');
+    return setPlayerActive(who,playerStatus[1],body);
+  }
   const share=/^\/matches\/([^/]+)\/share$/.exec(path);
   if(share && req.method==='GET') {
     if(!uuid(share[1]))throw error('Match not found.',404);
@@ -165,7 +172,7 @@ http.createServer(async(req,res)=>{
       const result=await api(req,res,url);if(!res.writableEnded) res.end(JSON.stringify(result));return;
     }
     let path=url.pathname;
-    if(path==='/') path='/index.html';
+    if(path==='/' || path==='/admin') path='/index.html';
     if(path==='/bigscreen')path='/bigscreen.html';
     if(path==='/activate')path='/activate.html';
     if(!allowed.has(path)) throw error('Not found.',404);
