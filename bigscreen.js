@@ -171,7 +171,7 @@ function render() {
             )
             .join("")
         : '<p class="empty">No matches yet.</p>'
-    }</section></div><footer class="board-footer">${button("Record match", "record", "primary", snapshot.players.length < 2 ? "disabled" : "")}<div class="record-qr"><span class="qr"><img src="/api/v1/display/qr" alt="Scan to record a match on your phone"></span><span>Scan to record</span></div></footer>${errorNode()}</section>`;
+    }</section></div><footer class="board-footer">${button("Record match", "record", "primary", snapshot.players.length < 2 ? "disabled" : "")}<span class="record-choice">or</span><div class="record-qr"><span class="qr"><img src="/api/v1/display/qr" alt="Scan to record a match on your phone"></span><span>Scan with your phone to record</span></div></footer>${errorNode()}</section>`;
     return;
   }
   if (scene === "me" || scene === "opponent") {
