@@ -88,6 +88,12 @@ async function refresh() {
   const matchId = location.hash.startsWith("#match/") ? location.hash.slice(7) : null;
   const playerId = location.hash.startsWith("#profile/") ? location.hash.slice(9) : null;
   data = await api("/state" + ((matchId || playerId) ? "?" + (matchId ? "match=" + encodeURIComponent(matchId) : "player=" + encodeURIComponent(playerId)) : ""));
+  if (location.pathname === "/admin") {
+    if (data.displayAdmin && (location.hash === "#big-screens" || !data.playerAdmin))
+      data.displays = (await api("/displays")).displays;
+    render();
+    return true;
+  }
   if (location.hash === "#record-match") {
     if (data.user) {
       history.replaceState(null, "", "#feed");
@@ -282,9 +288,8 @@ function leaderboard() {
   }`;
 }
 function players() {
-  const inactive = data.playerAdmin && playerStatusFilter === "inactive";
-  const roster = data.players.filter(p => inactive ? p.active === false : p.active !== false);
-  return `${heading("Meet your match.", "Your colleagues. Your competition. A few suspiciously good backhands.", "THE PLAYERS", `<div class="search"><input id="player-search" aria-label="Search players" placeholder="Search the roster…"></div>`)}${data.playerAdmin ? `<div class="tabs">${["active","inactive"].map(status=>`<button data-action="player-status-filter" data-value="${status}" class="${playerStatusFilter===status?'active':''}">${status==='active'?'Active':'Inactive'}</button>`).join('')}</div>` : ''}<div class="player-grid">${roster
+  const roster = data.players.filter(p => p.active !== false);
+  return `${heading("Meet your match.", "Your colleagues. Your competition. A few suspiciously good backhands.", "THE PLAYERS", `<div class="search"><input id="player-search" aria-label="Search players" placeholder="Search the roster…"></div>`)}<div class="player-grid">${roster
     .map((p) => {
       const s = stats(p.id);
       return `<a class="panel player-card" href="#profile/${p.id}" data-player-search="${esc((p.name + " " + p.username).toLowerCase())}">${avatar(p, "large")}<h3>${esc(first(p))}</h3>${p.active===false?'<span class="badge inactive">Inactive</span>':''}<small>@${esc(p.username)}</small><p>${esc(p.bio || (p.active===false ? "" : "New to the table. Ready to play."))}</p><div class="mini-stats"><div><strong>${s.wins}</strong><small>WINS</small></div><div><strong>${s.played}</strong><small>GAMES</small></div><div><strong>${s.rate}%</strong><small>WIN RATE</small></div></div></a>`;
@@ -309,7 +314,7 @@ function profile(id) {
     rival = opponents[0],
     h2h = matchResults.filter((g) => [g.player1, g.player2].includes(rival?.id)),
     rs = data.rivalries ? data.rivalries.find(r=>r.id===id && r.opponent===rival?.id) || {played:0,wins:0,losses:0} : stats(id, h2h);
-  return `${heading("Player card.", "A little personality behind the paddle.", "THE ROSTER", data.playerAdmin && data.user?.id!==id ? `<button class="btn soft" data-action="player-status" data-player-id="${id}">${p.active===false?'Reactivate':'Deactivate'}</button>` : '')}<div class="columns"><div><section class="panel profile-panel"><div class="profile-cover"><span>${p.active===false?"MATCH HISTORY":"PLAY YOUR GAME."}</span></div><div class="profile-intro">${avatar(p, "large")}${data.user?.id === id ? `<button class="btn ghost small profile-edit" data-action="edit-profile">${icon("edit")} Edit profile</button>` : p.active!==false ? `<button class="btn ghost small profile-edit" data-action="record" data-opponent="${id}">Record a match</button>` : ''}<h1>${esc(p.name)}</h1><small>@${esc(p.username)} · ${p.active===false?'Inactive':'Nalaboard player'}</small><p class="bio">${esc(p.bio || (p.active===false ? "" : "New to the table. Ready to play."))}</p><div class="badges">${s.wins ? '<span class="badge">🏓 First W</span>' : ""}${s.played >= 5 ? '<span class="badge">🔥 Table regular</span>' : ""}${s.rate >= 70 && s.played ? '<span class="badge">⚡ On a roll</span>' : ""}<span class="badge">✦ Founding roster</span></div></div></section><div class="stats-grid">${[
+  return `${heading("Player card.", "A little personality behind the paddle.", "THE ROSTER")}<div class="columns"><div><section class="panel profile-panel"><div class="profile-cover"><span>${p.active===false?"MATCH HISTORY":"PLAY YOUR GAME."}</span></div><div class="profile-intro">${avatar(p, "large")}${data.user?.id === id ? `<button class="btn ghost small profile-edit" data-action="edit-profile">${icon("edit")} Edit profile</button>` : p.active!==false ? `<button class="btn ghost small profile-edit" data-action="record" data-opponent="${id}">Record a match</button>` : ''}<h1>${esc(p.name)}</h1><small>@${esc(p.username)} · ${p.active===false?'Inactive':'Nalaboard player'}</small><p class="bio">${esc(p.bio || (p.active===false ? "" : "New to the table. Ready to play."))}</p><div class="badges">${s.wins ? '<span class="badge">🏓 First W</span>' : ""}${s.played >= 5 ? '<span class="badge">🔥 Table regular</span>' : ""}${s.rate >= 70 && s.played ? '<span class="badge">⚡ On a roll</span>' : ""}<span class="badge">✦ Founding roster</span></div></div></section><div class="stats-grid">${[
     ["Wins", s.wins],
     ["Losses", s.losses],
     ["Win rate", s.rate + "%"],
@@ -403,8 +408,27 @@ function agents() {
       "",
     )}</section></div><section class="panel" style="margin-top:23px"><div class="section-title"><h3>Your connections</h3><small>Personal. Revocable. Yours.</small></div>${data.keys.length ? data.keys.map((k) => `<div class="connection"><span class="avatar" style="background:#eaf7fc">${icon("agent")}</span><div><strong>${esc(k.label)}</strong><small>API access · created ${dateLabel(k.createdAt.slice(0, 10))}</small></div><button data-action="revoke-key" data-id="${k.id}">Disconnect</button></div>`).join("") : '<p class="muted" style="font-size:12px">No agents connected yet. Your future teammate is waiting above.</p>'}</section>`;
 }
+function adminPlayers() {
+  if (!data.playerAdmin) return "";
+  const inactive = playerStatusFilter === "inactive";
+  const roster = data.players.filter(p => inactive ? p.active === false : p.active !== false);
+  return `<section class="panel"><div class="page-heading"><div class="tabs">${["active","inactive"].map(status=>`<button data-action="player-status-filter" data-value="${status}" class="${playerStatusFilter===status?'active':''}">${status==='active'?'Active':'Inactive'}</button>`).join('')}</div><div class="search"><input id="player-search" aria-label="Search players" placeholder="Search players"></div></div>${roster.map(p=>`<div class="admin-row" data-player-search="${esc((p.name+' '+p.username).toLowerCase())}"><a class="player-cell" href="/#profile/${p.id}">${avatar(p)}<div><strong>${esc(p.name)}</strong><small>@${esc(p.username)}</small></div></a>${p.id===data.user.id?'<span class="muted">You</span>':`<button class="btn soft small" data-action="player-status" data-player-id="${p.id}">${inactive?'Reactivate':'Deactivate'}</button>`}</div>`).join('')}<p class="muted" id="search-empty" ${roster.length?'hidden':''}>No players found.</p></section>`;
+}
+function adminScreens() {
+  if (!data.displayAdmin) return "";
+  const screens = (data.displays || []).filter(d=>!d.revoked_at);
+  return `<section class="panel"><h2>Activate a big screen</h2><form class="admin-activation" data-form="admin-activate"><div><label for="display-code">Display code</label><input id="display-code" name="code" autocomplete="off" autocapitalize="characters" required></div><button class="btn primary" type="submit">Continue</button><div class="form-error" role="alert"></div></form></section><section class="panel" style="margin-top:24px"><h2>Connected big screens</h2>${screens.length?screens.map(d=>`<div class="admin-row"><div><strong>Office big screen</strong><p class="muted">Last connected ${esc(new Date(d.last_seen_at).toLocaleString('en-GB',{timeZone:'Europe/London'}))}</p></div><button class="btn soft small" data-action="admin-disconnect" data-display-id="${d.id}">Disconnect</button></div>`).join(''):'<p class="muted" style="margin-top:18px">No big screens connected.</p>'}</section>`;
+}
+function renderAdmin() {
+  document.title = "Admin · Nalaboard";
+  const allowed = data.user && (data.playerAdmin || data.displayAdmin);
+  const screens = data.displayAdmin && (location.hash === "#big-screens" || !data.playerAdmin);
+  const content = !data.user ? empty("Sign in to manage Nalaboard.", "", "Sign in", "signin") : !allowed ? empty("Admin access required.", "") : `<h1>Admin</h1><div class="tabs admin-tabs">${data.playerAdmin?`<button data-action="admin-tab" data-value="players" class="${!screens?'active':''}">Players</button>`:''}${data.displayAdmin?`<button data-action="admin-tab" data-value="big-screens" class="${screens?'active':''}">Big screens</button>`:''}</div>${screens?adminScreens():adminPlayers()}`;
+  $('#app').innerHTML = `<div class="admin-shell"><header class="topbar"><a class="logo" href="/" aria-label="Nalaboard home"><img class="brand-image" src="/brand-logo.png" width="800" height="210" alt="Nalaboard"></a>${data.user?`<button data-action="account" aria-label="Your account">${avatar(data.user,'tiny')}</button>`:''}</header><main class="content">${content}</main></div>`;
+}
 function render() {
   clearReactionEffect();
+  if (location.pathname === "/admin") {renderAdmin();return;}
   const [route = "feed", id] = location.hash.slice(1).split("/");
   if(['weekly-emails','daily-emails'].includes(route)) { weeklyPreferencePage(id,route==='daily-emails'); return; }
   const page = [
@@ -523,8 +547,9 @@ function editProfile(onboard = false) {
 }
 function account() {
   if (!data.user) return signIn();
+  const home = location.pathname === "/admin" ? "/" : "";
   modal(
-    `<div class="eyebrow orange">YOUR CORNER</div><h2>Hey, ${esc(first(data.user))}.</h2><p class="muted">${esc(data.user.email)}</p><a class="btn soft full" href="#profile/${data.user.id}" data-action="close">${icon("players")} My player card</a><button class="btn soft full" data-action="edit-profile" style="margin-top:10px">${icon("edit")} Edit profile</button><a class="btn soft full" href="#activity" data-action="close" style="margin-top:10px">${icon("activity")} Activity history</a>${data.displayAdmin?'<a class="btn soft full" href="/activate#displays" style="margin-top:10px">Office displays</a>':''}<label style="display:flex;gap:10px;align-items:center;margin-top:24px"><input style="width:auto" type="checkbox" data-preference="notifications" ${data.user.notifications ? "checked" : ""}> Match and comment emails</label><small class="field-hint">Sign-in and agent security emails stay on.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="weekly" ${data.user.weeklyRecap ? "checked" : ""}> Weekly recap</label><small class="field-hint">Friday at 5 PM London time. This week’s winner and their matches.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="daily" ${data.user.dailyMatchups ? "checked" : ""}> Daily matchups</label><small class="field-hint">Weekdays at 8 AM London time. Turning this off also removes you from the pairing pool.</small><button class="btn ghost full" data-action="logout" style="margin-top:23px">${icon("logout")} Sign out</button>`,
+    `<div class="eyebrow orange">YOUR CORNER</div><h2>Hey, ${esc(first(data.user))}.</h2><p class="muted">${esc(data.user.email)}</p><a class="btn soft full" href="${home}#profile/${data.user.id}" data-action="close">${icon("players")} My player card</a>${home?`<a class="btn soft full" href="/#edit-profile" style="margin-top:10px">${icon('edit')} Edit profile</a>`:`<button class="btn soft full" data-action="edit-profile" style="margin-top:10px">${icon('edit')} Edit profile</button>`}<a class="btn soft full" href="${home}#activity" data-action="close" style="margin-top:10px">${icon("activity")} Activity history</a>${data.playerAdmin || data.displayAdmin?'<a class="btn soft full" href="/admin" style="margin-top:10px">Admin</a>':''}<label style="display:flex;gap:10px;align-items:center;margin-top:24px"><input style="width:auto" type="checkbox" data-preference="notifications" ${data.user.notifications ? "checked" : ""}> Match and comment emails</label><small class="field-hint">Sign-in and agent security emails stay on.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="weekly" ${data.user.weeklyRecap ? "checked" : ""}> Weekly recap</label><small class="field-hint">Friday at 5 PM London time. This week’s winner and their matches.</small><label style="display:flex;gap:10px;align-items:center;margin-top:18px"><input style="width:auto" type="checkbox" data-preference="daily" ${data.user.dailyMatchups ? "checked" : ""}> Daily matchups</label><small class="field-hint">Weekdays at 8 AM London time. Turning this off also removes you from the pairing pool.</small><button class="btn ghost full" data-action="logout" style="margin-top:23px">${icon("logout")} Sign out</button>`,
   );
 }
 function weeklyPreferencePage(token,daily=false) {
@@ -624,6 +649,17 @@ async function action(el) {
       el.disabled=true;
       try { await api("/"+el.dataset.kind+"-preference","POST",{token:el.dataset.token,enabled:false}); weeklyPreferencePage(el.dataset.token,el.dataset.kind==="daily"); }
       catch(err) { el.disabled=false;throw err; }
+      break;
+    case "admin-tab":
+      location.hash=el.dataset.value;
+      break;
+    case "admin-disconnect":
+      modal(`<h2>Disconnect this big screen?</h2><p class="muted" style="margin:20px 0">It will need to be activated again.</p><div class="form-error" role="alert"></div><div class="match-actions"><button class="btn soft" data-action="close">Cancel</button><button class="btn primary" data-action="confirm-admin-disconnect" data-display-id="${el.dataset.displayId}">Disconnect</button></div>`);
+      break;
+    case "confirm-admin-disconnect":
+      el.disabled=true;
+      try {await api('/displays/'+el.dataset.displayId,'DELETE');closeModal();await refresh();}
+      catch(err){el.disabled=false;const message=$('#modal-root .form-error');if(message)message.textContent=err.message;else toast(err.message);}
       break;
     case "player-status-filter":
       playerStatusFilter=el.dataset.value;
@@ -851,6 +887,9 @@ document.addEventListener("submit", async (e) => {
   if (btn) btn.disabled = true;
   try {
     switch (f.dataset.form) {
+      case "admin-activate":
+        location.assign('/activate?code='+encodeURIComponent(b.code.trim().toUpperCase()));
+        break;
       case "email":
         const out = await api("/auth/request", "POST", b);
         otp(out.email);

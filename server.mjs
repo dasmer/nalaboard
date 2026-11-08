@@ -172,7 +172,7 @@ http.createServer(async(req,res)=>{
       const result=await api(req,res,url);if(!res.writableEnded) res.end(JSON.stringify(result));return;
     }
     let path=url.pathname;
-    if(path==='/') path='/index.html';
+    if(path==='/' || path==='/admin') path='/index.html';
     if(path==='/bigscreen')path='/bigscreen.html';
     if(path==='/activate')path='/activate.html';
     if(!allowed.has(path)) throw error('Not found.',404);
