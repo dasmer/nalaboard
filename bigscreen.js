@@ -142,7 +142,7 @@ function render() {
   if (scene === "celebrate") {
     const m = celebration.match,
       winner = m.score1 > m.score2 ? m.player1 : m.player2;
-    root.innerHTML = `<section class="celebration"><div class="confetti" aria-hidden="true">${Array.from({ length: 36 }, (_, i) => `<i style="left:${3 + ((i * 17) % 94)}%;top:${8 + ((i * 13) % 50)}%;animation-delay:${(i % 9) * 0.055}s"></i>`).join("")}</div>${avatar(person(winner))}<h1>${esc(name(winner))} wins 🎉</h1><p class="versus">${esc(name(m.player1))} vs ${esc(name(m.player2))}</p><div class="final-score">${m.score1}–${m.score2}</div>${m.date !== snapshot.today ? `<small>${esc(m.date)}</small>` : ""}<div class="game-results">${m.games.map((g) => `<span>${esc(gameLabel(g, [name(m.player1), name(m.player2)]))}</span>`).join("")}</div>${celebration.newLeader ? '<p class="leader">New weekly leader</p>' : ""}<div class="brand-pair"><img src="/brand-logo.png" alt="Nalaboard"><img src="/rafiki-logo.svg" alt="Rafiki"></div><button class="quiet" data-action="cancel">Back to board</button></section>`;
+    root.innerHTML = `<section class="celebration"><div class="confetti" aria-hidden="true">${Array.from({ length: 36 }, (_, i) => `<i style="left:${3 + ((i * 17) % 94)}%;top:${8 + ((i * 13) % 50)}%;animation-delay:${(i % 9) * 0.055}s"></i>`).join("")}</div>${avatar(person(winner))}<h1>${esc(name(winner))} wins 🎉</h1><p class="versus">${esc(name(m.player1))} vs ${esc(name(m.player2))}</p><div class="final-score">${m.score1}–${m.score2}</div>${m.date !== snapshot.today ? `<small>${esc(m.date)}</small>` : ""}<div class="game-results">${m.games.map((g) => `<span>${esc(gameLabel(g, [name(m.player1), name(m.player2)]))}</span>`).join("")}</div>${celebration.newLeader ? '<p class="leader">New weekly leader</p>' : ""}<button class="quiet" data-action="cancel">Back to board</button></section>`;
   }
 }
 function updateExpiry() {
@@ -514,6 +514,11 @@ document.querySelector("#fullscreen").addEventListener("click", async () => {
   } catch {
     connection.textContent = "Use your browser’s fullscreen control.";
   }
+});
+document.addEventListener("fullscreenchange", () => {
+  const button = document.querySelector("#fullscreen");
+  button.textContent = document.fullscreenElement ? "Exit fullscreen" : "Fullscreen";
+  button.setAttribute("aria-label", button.textContent);
 });
 setInterval(() => {
   updateExpiry();

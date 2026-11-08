@@ -78,9 +78,7 @@ small,
   width: 175px;
   height: 50px;
   object-fit: contain;
-  background: #f3f8fa;
-  border-radius: 8px;
-  padding: 6px;
+  filter: url(#sidebar-logo-colors);
 }
 .top-actions {
   display: flex;
@@ -554,26 +552,6 @@ input {
   justify-content: center;
   flex-wrap: wrap;
   font-size: 23px;
-}
-.celebration .brand-pair {
-  display: flex;
-  align-items: center;
-  gap: 25px;
-  margin-top: 15px;
-}
-.brand-pair img {
-  height: 28px;
-  width: auto;
-  max-width: 150px;
-  object-fit: contain;
-}
-.brand-pair img:first-child {
-  background: #f3f8fa;
-  border-radius: 5px;
-  padding: 3px;
-}
-.brand-pair img:last-child {
-  filter: none;
 }
 .confetti {
   position: absolute;

@@ -121,4 +121,4 @@ Apply both `office-displays` and `display-updates` migrations before deploying t
 
 Validation: `npm test`, the existing backend suites, and `npm run test:display-integration` against an isolated test server. Display fixtures must remain in `nalaboard-test` or `nalaboard-series-test`; test delivery is disabled. Real inbox delivery and physical office TV/iPad testing are separate acceptance checks.
 
-Brand assets: Nalaboard's existing paddle logo is retained. `rafiki-logo.svg` combines the original symbol and wordmark SVG paths from the [official Rafiki website](https://www.rafiki.com/) header; it has no scripts or external references. Motion uses CSS and browser animation APIs; `qrcode` is the only new dependency and runs on the server.
+Brand assets: the header reuses Nalaboard’s existing dark-background logo treatment. Celebrations focus on the players and scores. Motion uses CSS and browser animation APIs; `qrcode` is the only new dependency and runs on the server.
