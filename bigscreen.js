@@ -13,6 +13,7 @@ let scene = "loading",
   draft,
   celebration,
   timer,
+  celebrationTicker,
   idle,
   warning,
   polling = false,
@@ -29,8 +30,6 @@ const person = (id) =>
 const name = (id) => person(id).name;
 const button = (label, action, cls = "", extra = "") =>
   `<button class="action ${cls}" data-action="${action}" ${extra}>${label}</button>`;
-const nav = (back) =>
-  `<nav class="entry-nav"><button class="quiet" data-action="${back}">← Back</button><span>Record match</span><button class="quiet" data-action="cancel">Cancel</button></nav>`;
 const errorNode = () => `<p class="error" role="alert">${esc(error)}</p>`;
 function rememberPair(value) {
   pair = value;
@@ -38,13 +37,77 @@ function rememberPair(value) {
     sessionStorage.setItem("nb-pair", JSON.stringify(value));
   } catch {}
 }
-function go(next) {
+// Only navigation metadata enters history; drafts stay in this browser's memory.
+let returnTarget = null;
+history.replaceState(
+  { nbDisplay: { scene: "loading", depth: 0 } },
+  "",
+  location.pathname,
+);
+function go(next, recordHistory = true) {
   clearTimeout(timer);
+  clearInterval(celebrationTicker);
+  const current = history.state?.nbDisplay;
+  const step = ["me", "opponent", "score", "local", "otp"].includes(next);
+  if (recordHistory) {
+    if (!step && current?.depth) {
+      returnTarget = next;
+      history.go(-current.depth);
+      return;
+    }
+    const state = {
+      nbDisplay: {
+        scene: next,
+        depth: step ? (current?.depth || 0) + 1 : 0,
+        flow: draft?.flow || "pair",
+        index: draft?.index || 0,
+      },
+    };
+    if (step) history.pushState(state, "", location.pathname);
+    else history.replaceState(state, "", location.pathname);
+  }
   scene = next;
   error = "";
   render();
   resetIdle();
   if (next === "board") playNext();
+}
+window.addEventListener("popstate", (event) => {
+  if (returnTarget) {
+    const target = returnTarget;
+    returnTarget = null;
+    history.replaceState(
+      { nbDisplay: { scene: target, depth: 0 } },
+      "",
+      location.pathname,
+    );
+    go(target, false);
+    return;
+  }
+  const state = event.state?.nbDisplay;
+  if (draft && state?.flow === draft.flow) {
+    if (state.scene === "score") loadGame(state.index, false);
+    else go(state.scene, false);
+  } else if (!snapshot && pair && ["local", "otp"].includes(state?.scene)) {
+    go(state.scene, false);
+  } else {
+    history.replaceState(
+      { nbDisplay: { scene: snapshot ? "board" : "pair", depth: 0 } },
+      "",
+      location.pathname,
+    );
+    go(snapshot ? "board" : "pair", false);
+  }
+});
+function updateCountdown() {
+  if (scene !== "celebrate") return;
+  const seconds = Math.max(
+    0,
+    Math.ceil((celebration.endsAt - Date.now()) / 1000),
+  );
+  const label = root.querySelector("#celebration-countdown");
+  if (label) label.textContent = `Back to board in ${seconds}s`;
+  if (!seconds) go("board");
 }
 function render() {
   if (scene === "pair") {
@@ -53,7 +116,7 @@ function render() {
     return;
   }
   if (scene === "local" || scene === "otp") {
-    root.innerHTML = `<section class="form enter">${nav("pair")}<h1>${scene === "local" ? "Activate display" : "Email code"}</h1><form id="local-form"><label for="local-value">${scene === "local" ? "Admin email" : "Six-digit code"}</label><input id="local-value" name="value" type="${scene === "local" ? "email" : "text"}" ${scene === "otp" ? 'inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"' : 'autocomplete="email"'} required>${button(scene === "local" ? "Send code" : "Activate", "submit-local", "primary", 'type="submit"')}${errorNode()}</form><p class="muted">Display access only. No personal login stays here.</p></section>`;
+    root.innerHTML = `<section class="form enter"><h1>${scene === "local" ? "Activate display" : "Email code"}</h1><form id="local-form"><label for="local-value">${scene === "local" ? "Admin email" : "Six-digit code"}</label><input id="local-value" name="value" type="${scene === "local" ? "email" : "text"}" ${scene === "otp" ? 'inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"' : 'autocomplete="email"'} required>${button(scene === "local" ? "Send code" : "Activate", "submit-local", "primary", 'type="submit"')}${errorNode()}</form><p class="muted">Display access only. No personal login stays here.</p></section>`;
     root.querySelector("input").focus();
     return;
   }
@@ -98,7 +161,7 @@ function render() {
   }
   if (scene === "me" || scene === "opponent") {
     const me = scene === "me";
-    root.innerHTML = `${nav(me ? "cancel" : "me")}<h1>${me ? "You?" : esc(name(draft.player1)) + " vs…"}</h1>${snapshot.players.length > 8 ? '<input class="player-search" type="search" placeholder="Find a player" aria-label="Find a player">' : ""}<div class="people enter">${snapshot.players
+    root.innerHTML = `<h1>${me ? "You?" : esc(name(draft.player1)) + " vs…"}</h1>${snapshot.players.length > 8 ? '<input class="player-search" type="search" placeholder="Find a player" aria-label="Find a player">' : ""}<div class="people enter">${snapshot.players
       .filter((p) => me || p.id !== draft.player1)
       .map(
         (p) =>
@@ -117,7 +180,7 @@ function render() {
     previous.forEach((g) => wins[gameWinner(g) - 1]++);
     if (valid) wins[g.winner]++;
     const finished = i > 0 && Math.max(...wins) === 2;
-    root.innerHTML = `${nav("score-back")}<section class="score-screen"><div class="game-chips">${previous.map((g, j) => `<button class="game-chip" data-action="edit-game" data-index="${j}">Game ${j + 1}: ${esc(gameLabel(g, [name(draft.player1), name(draft.opponent)]))}</button>`).join("")}</div><h1>${chosen ? "Game " + (i + 1) : "Who won game " + (i + 1) + "?"}</h1><div class="score-sides ${chosen ? "" : "compact"}">${[
+    root.innerHTML = `<section class="score-screen"><div class="game-chips">${previous.map((g, j) => `<button class="game-chip" data-action="edit-game" data-index="${j}">Game ${j + 1}: ${esc(gameLabel(g, [name(draft.player1), name(draft.opponent)]))}</button>`).join("")}</div><h1>${chosen ? "Game " + (i + 1) : "Who won game " + (i + 1) + "?"}</h1><div class="score-sides ${chosen ? "" : "compact"}">${[
       draft.player1,
       draft.opponent,
     ]
@@ -142,7 +205,7 @@ function render() {
   if (scene === "celebrate") {
     const m = celebration.match,
       winner = m.score1 > m.score2 ? m.player1 : m.player2;
-    root.innerHTML = `<section class="celebration"><div class="confetti" aria-hidden="true">${Array.from({ length: 36 }, (_, i) => `<i style="left:${3 + ((i * 17) % 94)}%;top:${8 + ((i * 13) % 50)}%;animation-delay:${(i % 9) * 0.055}s"></i>`).join("")}</div>${avatar(person(winner))}<h1>${esc(name(winner))} wins 🎉</h1><p class="versus">${esc(name(m.player1))} vs ${esc(name(m.player2))}</p><div class="final-score">${m.score1}–${m.score2}</div>${m.date !== snapshot.today ? `<small>${esc(m.date)}</small>` : ""}<div class="game-results">${m.games.map((g) => `<span>${esc(gameLabel(g, [name(m.player1), name(m.player2)]))}</span>`).join("")}</div>${celebration.newLeader ? '<p class="leader">New weekly leader</p>' : ""}<button class="quiet" data-action="cancel">Back to board</button></section>`;
+    root.innerHTML = `<section class="celebration"><div class="confetti" aria-hidden="true">${Array.from({ length: 36 }, (_, i) => `<i style="left:${3 + ((i * 17) % 94)}%;top:${8 + ((i * 13) % 50)}%;animation-delay:${(i % 9) * 0.055}s"></i>`).join("")}</div>${avatar(person(winner))}<h1>${esc(name(winner))} wins 🎉</h1><p class="versus">${esc(name(m.player1))} vs ${esc(name(m.player2))}</p><div class="final-score">${m.score1}–${m.score2}</div>${m.date !== snapshot.today ? `<small>${esc(m.date)}</small>` : ""}<div class="game-results">${m.games.map((g) => `<span>${esc(gameLabel(g, [name(m.player1), name(m.player2)]))}</span>`).join("")}</div>${celebration.newLeader ? '<p class="leader">New weekly leader</p>' : ""}<small class="celebration-countdown" id="celebration-countdown" role="timer" aria-live="off">Back to board in 30s</small></section>`;
   }
 }
 function updateExpiry() {
@@ -178,7 +241,7 @@ function resetIdle() {
     go(snapshot ? "board" : "pair");
   }, 120000);
 }
-function loadGame(index) {
+function loadGame(index, recordHistory = true) {
   draft.index = index;
   const g = draft.games[index];
   draft.current = draft.states[index]
@@ -192,7 +255,7 @@ function loadGame(index) {
             type: "exact",
           }
       : { winner: null, points: null, type: "exact" };
-  go("score");
+  go("score", recordHistory);
 }
 function currentGame() {
   const g = draft.current;
@@ -265,8 +328,10 @@ async function playNext() {
             score2: pending.match.score2,
           }),
     };
+    celebration.endsAt = Date.now() + 30000;
     go("celebrate");
-    timer = setTimeout(() => go("board"), 8000);
+    timer = setTimeout(() => go("board"), 30000);
+    celebrationTicker = setInterval(updateCountdown, 1000);
   } catch (e) {
     if (scene === "preparing") {
       scene = "board";
@@ -406,6 +471,7 @@ async function requestWake() {
 }
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
+    updateCountdown();
     poll();
     if (snapshot) requestWake();
   }
@@ -424,7 +490,8 @@ document.addEventListener("click", async (e) => {
   const el = e.target.closest("[data-action]");
   if (!el || el.disabled) return;
   const action = el.dataset.action;
-  if (draft?.saving) return;
+  if (el.tagName === "A") e.preventDefault();
+  if (draft?.saving || returnTarget) return;
   resetIdle();
   try {
     if (action === "cancel") {
@@ -435,13 +502,16 @@ document.addEventListener("click", async (e) => {
     } else if (action === "keep") resetIdle();
     else if (action === "retry") await poll();
     else if (action === "new-code") await newPair();
-    else if (action === "pair") go("pair");
     else if (action === "local") go("local");
     else if (action === "record") {
-      draft = { games: [], states: [], key: crypto.randomUUID() };
+      draft = {
+        games: [],
+        states: [],
+        key: crypto.randomUUID(),
+        flow: crypto.randomUUID(),
+      };
       go("me");
-    } else if (action === "me") go("me");
-    else if (action === "choose-me") {
+    } else if (action === "choose-me") {
       draft.player1 = el.dataset.id;
       if (draft.opponent === draft.player1) draft.opponent = null;
       draft.games = [];
@@ -469,10 +539,6 @@ document.addEventListener("click", async (e) => {
     } else if (action === "edit-game") {
       commitGame();
       loadGame(Number(el.dataset.index));
-    } else if (action === "score-back") {
-      commitGame();
-      if (draft.index) loadGame(draft.index - 1);
-      else go("opponent");
     } else if (action === "save" || action === "save-single")
       await save(action === "save-single");
   } catch (e) {
@@ -517,7 +583,9 @@ document.querySelector("#fullscreen").addEventListener("click", async () => {
 });
 document.addEventListener("fullscreenchange", () => {
   const button = document.querySelector("#fullscreen");
-  button.textContent = document.fullscreenElement ? "Exit fullscreen" : "Fullscreen";
+  button.textContent = document.fullscreenElement
+    ? "Exit fullscreen"
+    : "Fullscreen";
   button.setAttribute("aria-label", button.textContent);
 });
 setInterval(() => {

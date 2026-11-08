@@ -140,19 +140,6 @@ small,
   margin-top: 16px;
   font-size: 16px;
 }
-.entry-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 25px;
-  gap: 15px;
-}
-.entry-nav button {
-  min-width: 70px;
-}
-.entry-nav span {
-  color: var(--muted);
-}
 .center {
   text-align: center;
 }
@@ -778,9 +765,6 @@ input {
   .actions .action {
     width: 100%;
   }
-  .entry-nav span {
-    display: none;
-  }
   .form {
     margin: 25px auto;
   }
@@ -834,4 +818,11 @@ input {
   .confetti {
     display: none;
   }
+}
+
+.celebration-countdown {
+  color: var(--muted);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  margin-top: 12px;
 }
